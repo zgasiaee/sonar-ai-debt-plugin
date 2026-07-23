@@ -1,0 +1,28 @@
+# This repository intentionally contains only the reusable research artifact.
+/*
+!/.gitignore
+!/README.md
+!/.github/
+!/.github/**
+!/sonar-ai-debt-plugin/
+!/sonar-ai-debt-plugin/**
+!/SpecDetect4AI-B903/
+!/SpecDetect4AI-B903/**
+
+# Generated and machine-local content
+**/target/
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.DS_Store
+**/.idea/
+**/.vscode/
+**/.vscode*
+**/*.iml
+**/research/output/
+
+# Upstream SpecDetect4AI research material not required by the plugin runtime
+/SpecDetect4AI-B903/DSL_Compare/
+/SpecDetect4AI-B903/Evaluation/
+/SpecDetect4AI-B903/RAG/

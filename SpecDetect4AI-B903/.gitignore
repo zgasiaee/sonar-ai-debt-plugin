@@ -1,0 +1,14 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+.idea/
+.vscode/
+.vscode*
+*.iml
+
+# Not required to generate AISD reports
+DSL_Compare/
+Evaluation/
+RAG/

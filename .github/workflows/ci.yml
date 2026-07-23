@@ -1,0 +1,35 @@
+name: verify-artifact
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plugin:
+    name: SonarQube plugin
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sonar-ai-debt-plugin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: sonar-ai-debt-plugin/pom.xml
+      - name: Verify plugin
+        run: mvn --batch-mode --no-transfer-progress clean verify
+      - name: Upload plugin JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonar-ai-debt-plugin
+          path: sonar-ai-debt-plugin/target/sonar-ai-debt-plugin-*.jar
+          if-no-files-found: error
+
