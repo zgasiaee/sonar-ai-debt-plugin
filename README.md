@@ -1,6 +1,6 @@
 # Sonar AI Debt Plugin for Python
 
-This private research repository contains a Python-only SonarQube plugin for
+This research repository contains a Python-only SonarQube plugin for
 measuring technical and cognitive debt signals in code associated with
 AI-assisted software development.
 
