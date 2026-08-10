@@ -58,11 +58,12 @@ window.registerExtension('aidebt/dashboard', function (options) {
     ,'AIDEBT-PY-017':'multiply-nested-container','AIDEBT-PY-018':'long-parameter-list',
     'AIDEBT-PY-019':'long-method','AIDEBT-PY-020':'long-lambda','AIDEBT-PY-021':'long-ternary',
     'AIDEBT-PY-022':'complex-comprehension','AIDEBT-PY-023':'long-message-chain',
-    'AIDEBT-PY-024':'large-class'
+    'AIDEBT-PY-024':'large-class','AIDEBT-PY-025':'coupling-cycle',
+    'AIDEBT-PY-026':'unstable-dependency-direction'
   };
   root.classList.add('aidebt-scroll-root');
   const metricKeys = [
-    'aidebt_adsi','aidebt_tdsi','aidebt_cogdi','aidebt_metric_coverage',
+    'aidebt_adsi','aidebt_tdsi','aidebt_cogdi','aidebt_metric_coverage','aidebt_effort_model',
     'aidebt_aisd','aidebt_aisd_score','aidebt_cii','aidebt_cii_evidence','aidebt_cdi','aidebt_cdi_score','aidebt_cdi_evidence','aidebt_hts','aidebt_hts_evidence','aidebt_csd_evidence','aidebt_rlr_evidence','aidebt_sii_evidence','aidebt_egr_evidence',
     'aidebt_csd','aidebt_rlr','aidebt_sii','aidebt_egr','aidebt_files','aidebt_logical_lines','aidebt_blocks',
     'aidebt_aisd_smells','aidebt_aisd_kloc','aidebt_smell_broad_except','aidebt_smell_mutable_default',
@@ -70,8 +71,9 @@ window.registerExtension('aidebt/dashboard', function (options) {
     'aidebt_smell_placeholder','aidebt_smell_swallowed_exception','aidebt_smell_evaluation_leakage',
     'aidebt_smell_hardcoded_secret',
     'aidebt_cii_ca','aidebt_cii_ce','aidebt_cii_coupled_files','aidebt_cdi_mean_complexity',
-    'aidebt_cii_internal_dependencies','aidebt_cii_external_dependencies',
-    'aidebt_cdi_comment_density','aidebt_cdi_comment_lines','aidebt_cdi_source_lines',
+    'aidebt_cii_internal_dependencies','aidebt_cii_external_dependencies','aidebt_cii_cycles',
+    'aidebt_cii_stability_violations','aidebt_cii_remediation_actions',
+    'aidebt_cdi_comment_density','aidebt_cdi_comment_lines','aidebt_cdi_source_lines','aidebt_cdi_blocks',
     'aidebt_cdi_mean_nesting','aidebt_cdi_documented_blocks','aidebt_cdi_documentation_coverage',
     'aidebt_cdi_total_complexity_excess','aidebt_cdi_undocumented_complexity_excess',
     'aidebt_hts_implicit','aidebt_hts_explicit','aidebt_hts_config_driven','aidebt_hts_total',
@@ -104,27 +106,21 @@ window.registerExtension('aidebt/dashboard', function (options) {
 
   function render(measures, issues) {
     const v = Object.fromEntries(measures.map(measure => [measure.metric,
-      measure.metric.endsWith('_evidence') ? measure.value : Number(measure.value)]));
+      measure.metric.endsWith('_evidence') || measure.metric === 'aidebt_effort_model'
+        ? measure.value : Number(measure.value)]));
+    const effort = parseJson(v.aidebt_effort_model);
     const technical = metricDefinitions(v).slice(0, 4);
     const cognitive = metricDefinitions(v).slice(4);
     technical.concat(cognitive).forEach(metric => {
-      metric.effortMinutes = isNumber(metric.score) ? estimateMetricEffort(metric.short, v, issues) : NaN;
+      metric.effort = effort.metrics && effort.metrics[metric.short] ? effort.metrics[metric.short] : null;
     });
     const tdCalculation = calculateIndex('TDSI', technical, v.aidebt_tdsi);
     const cogCalculation = calculateIndex('CogDI', cognitive, v.aidebt_cogdi);
     const finalCalculation = calculateFinal(v, tdCalculation, cogCalculation);
-    const effort = {
-      technical: technical.some(metric => isNumber(metric.score))
-        ? technical.reduce((sum, metric) => sum + (isNumber(metric.effortMinutes) ? metric.effortMinutes : 0), 0) : NaN,
-      cognitive: cognitive.some(metric => isNumber(metric.score))
-        ? cognitive.reduce((sum, metric) => sum + (isNumber(metric.effortMinutes) ? metric.effortMinutes : 0), 0) : NaN
-    };
-    const availableEfforts = [effort.technical, effort.cognitive].filter(isNumber);
-    effort.overall = availableEfforts.length ? availableEfforts.reduce((sum, value) => sum + value, 0) : NaN;
     root.innerHTML = '';
     const page = el('main', 'aidebt-page');
-    page.append(header(v), summary(v, technical, cognitive, effort), overview(technical, cognitive, v, issues),
-      calculationSection(tdCalculation, cogCalculation, finalCalculation), methodologyNote());
+    page.append(header(v), summary(v, technical, cognitive, effort),
+      overview(technical, cognitive, v, issues), calculationSection(tdCalculation, cogCalculation, finalCalculation));
     root.appendChild(page);
   }
 
@@ -137,7 +133,9 @@ window.registerExtension('aidebt/dashboard', function (options) {
     const scope = el('div', 'aidebt-scope');
     scope.append(scopeItem(integer(v.aidebt_files), 'files'), scopeItem(integer(v.aidebt_logical_lines), 'logical lines'),
       scopeItem(integer(v.aidebt_blocks), 'callable blocks'));
-    copy.appendChild(scope);
+    const meta = el('div', 'aidebt-hero-meta');
+    meta.append(scope, effortConvention());
+    copy.appendChild(meta);
     section.appendChild(copy);
     return section;
   }
@@ -152,7 +150,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
     return section;
   }
 
-  function scoreCard(label, value, caption, primary, benefit, effortMinutes) {
+  function scoreCard(label, value, caption, primary, benefit, effort) {
     const card = el('article', `aidebt-score-card${primary ? ' aidebt-score-primary' : ''}`);
     const riskValue = benefit && isNumber(value) ? 1 - value : value;
     const top = el('div', 'aidebt-score-top');
@@ -162,7 +160,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
     gauge.style.setProperty('--score', `${Math.max(0, Math.min(1, value || 0)) * 360}deg`);
     gauge.appendChild(el('strong', '', isNumber(value) ? fixed(value) : 'N/A'));
     card.append(top, gauge, el('small', '', caption));
-    if (isNumber(effortMinutes)) card.appendChild(effortLabel(effortMinutes));
+    if (effort) card.appendChild(effortLabel(effort, label));
     return card;
   }
 
@@ -189,10 +187,10 @@ window.registerExtension('aidebt/dashboard', function (options) {
 
   function profile(title, metrics, values, issues) {
     const panel = el('article', 'aidebt-panel');
-    panel.appendChild(sectionTitle(title, 'Provisional risk bands · low / moderate / high'));
-    panel.appendChild(el('p', 'aidebt-panel-intro', title.startsWith('Technical')
-      ? 'Reproducibility, dependency structure, documentation, and AI-associated implementation risks.'
-      : 'Signals that increase the effort required to understand, verify, and maintain the code.'));
+    panel.append(el('h2', 'aidebt-profile-title', title),
+      el('p', 'aidebt-panel-intro', title.startsWith('Technical')
+        ? 'Reproducibility, dependency structure, documentation, and AI-associated implementation risks.'
+        : 'Signals that increase the effort required to understand, verify, and maintain the code.'));
     metrics.forEach(metric => {
       const row = el('div', 'aidebt-profile-row');
       const label = el('button', 'aidebt-profile-label');
@@ -354,10 +352,11 @@ window.registerExtension('aidebt/dashboard', function (options) {
     context.append(contextItem('What it measures', metric.measures), contextItem('How to read it', metric.interpretation));
     identity.appendChild(context);
     hero.append(identity, scoreCard(metric.short, metric.displayScore,
-      metric.benefit ? 'Transparency benefit score' : 'Normalized debt score', false, metric.benefit, metric.effortMinutes));
+      metric.benefit ? 'Transparency benefit score' : 'Normalized debt score', false, metric.benefit, metric.effort));
     const explanation = el('section', 'aidebt-metric-explanation');
+    const calculatedEvidence = metric.evidence.concat(thresholdEvidence(metric.short, values));
     explanation.append(sectionTitle('Calculated evidence', 'Observed inputs, diagnostics, and active thresholds'),
-      evidenceGrid(metric.evidence), thresholdEvidence(metric.short, values));
+      evidenceGrid(calculatedEvidence));
     const related = issues.filter(issue => rulesForMetric(metric.short).includes(ruleForIssue(issue)));
     const evidenceSection = metric.short === 'CII' ? ciiEvidenceSection(values)
       : metric.short === 'CDI' ? cdiEvidenceSection(values)
@@ -386,12 +385,12 @@ window.registerExtension('aidebt/dashboard', function (options) {
 
   function thresholdEvidence(short, v) {
     const rows = {
-      CSD: [['Mean adjacent similarity', v.aidebt_csd_mean_similarity], ['Minimum similarity', v.aidebt_csd_minimum_similarity], ['Switch threshold', v.aidebt_csd_threshold]],
-      RLR: [['Maximum syntax similarity', v.aidebt_rlr_maximum_syntactic_similarity], ['Syntax threshold', v.aidebt_rlr_syntactic_threshold], ['Maximum semantic similarity', v.aidebt_rlr_maximum_semantic_similarity], ['Semantic threshold', v.aidebt_rlr_semantic_threshold]],
-      SII: [['Comparable-concept pairs', v.aidebt_sii_semantically_similar], ['Maximum name-semantic similarity', v.aidebt_sii_maximum_semantic_similarity], ['Maximum context similarity', v.aidebt_sii_maximum_context_similarity], ['Name-semantic threshold', v.aidebt_sii_semantic_threshold], ['Context threshold', v.aidebt_sii_context_threshold], ['Lexical threshold', v.aidebt_sii_lexical_threshold]],
-      EGR: [['Cyclomatic-complexity threshold', v.aidebt_egr_cc_threshold], ['Maximum-nesting threshold', v.aidebt_egr_nesting_threshold]]
+      CSD: [['Mean adjacent similarity', v.aidebt_csd_mean_similarity], ['Minimum similarity', v.aidebt_csd_minimum_similarity], ['Switch boundary (provisional)', v.aidebt_csd_threshold]],
+      RLR: [['Maximum syntax similarity', v.aidebt_rlr_maximum_syntactic_similarity], ['Syntax-similarity boundary (provisional)', v.aidebt_rlr_syntactic_threshold], ['Maximum behavioral similarity', v.aidebt_rlr_maximum_semantic_similarity], ['Behavioral-similarity boundary (provisional)', v.aidebt_rlr_semantic_threshold]],
+      SII: [['Concept-and-context matches', v.aidebt_sii_semantically_similar], ['Maximum concept similarity', v.aidebt_sii_maximum_semantic_similarity], ['Maximum usage-context similarity', v.aidebt_sii_maximum_context_similarity], ['Concept-similarity boundary (provisional)', v.aidebt_sii_semantic_threshold], ['Usage-context boundary (provisional)', v.aidebt_sii_context_threshold], ['Name-similarity ceiling (provisional)', v.aidebt_sii_lexical_threshold]],
+      EGR: [['Complexity boundary (provisional)', v.aidebt_egr_cc_threshold], ['Nesting boundary (provisional)', v.aidebt_egr_nesting_threshold]]
     }[short] || [];
-    return rows.length ? evidenceGrid(rows.map(([label, value]) => ({label, value: number(value, 3)}))) : el('span', '');
+    return rows.map(([label, value]) => ({label, value: number(value, 3)}));
   }
 
   function csdEvidenceSection(values) {
@@ -404,13 +403,10 @@ window.registerExtension('aidebt/dashboard', function (options) {
     const transitionCount = isNumber(values.aidebt_csd_transitions) ? Math.round(values.aidebt_csd_transitions) : transitions.length;
     section.appendChild(sectionTitle('Detected CSD switches',
       `${switchCount} detected switch${switchCount === 1 ? '' : 'es'} from ${transitionCount} analyzed transition${transitionCount === 1 ? '' : 's'}`));
-    const note = el('div', 'aidebt-csd-note');
-    const calibrationBadge = el('span', 'aidebt-badge aidebt-status-caution', 'CALIBRATION PENDING');
-    calibrationBadge.title = 'The current 0.45 boundary is an engineering default. Calibrate and freeze it on independently labeled transitions before confirmatory evaluation.';
-    note.append(el('strong', '', 'Style–structure context'), el('p', 'aidebt-multiline',
+    const note = el('div', 'aidebt-analysis-note');
+    note.append(el('strong', '', 'Interpretation'), el('span', 'aidebt-multiline',
       'CSD compares naming style, coding idioms, and structural shape between consecutive same-scope callables.\n' +
-      'Similarity ranges from 0 (very different) to 1 (very similar); a value below the active boundary is a switch. Different responsibilities or domains do not by themselves create a switch.'),
-      calibrationBadge);
+      'Similarity ranges from 0 (very different) to 1 (very similar); a value below the configured boundary is treated as a switch.'));
     section.appendChild(note);
     if (!transitions.length) {
       section.appendChild(el('p', 'aidebt-empty-findings',
@@ -451,12 +447,14 @@ window.registerExtension('aidebt/dashboard', function (options) {
       : isNumber(values.aidebt_rlr_redundant) ? Math.round(values.aidebt_rlr_redundant) : pairs.length;
     section.appendChild(sectionTitle('Detected redundant callable pairs',
       `${total} pair${total === 1 ? '' : 's'} crossed at least one active similarity threshold`));
-    const note = el('div', 'aidebt-rlr-note');
-    note.append(el('strong', '', 'Pair-based evidence'), el('p', '',
-      'Each finding compares two complete callables. Syntax similarity captures normalized code overlap.\n' +
-      'semantic-proxy similarity summarizes static structure, calls, and returned identifiers. The proxy is evidence of likely behavioral overlap, not proof of runtime equivalence.'),
-);
+    const note = el('div', 'aidebt-analysis-note');
+    note.append(el('strong', '', 'Interpretation'), el('span', '',
+      'Each finding compares two complete callables. Syntax similarity measures overlap between normalized token sequences; behavioral similarity compares static structure, calls, and returned values. A match is a candidate for consolidation, not proof that the callables are equivalent at runtime.'));
     section.appendChild(note);
+    if (evidence.budgetReached) {
+      section.appendChild(el('p', 'aidebt-budget-warning',
+        `Pair budget reached: ${integer(evidence.analyzedPairs)} of ${integer(evidence.candidatePairs)} possible callable pairs were analyzed. Increase sonar.aidebt.pairBudget and rescan before treating this as a complete project-wide ratio.`));
+    }
     if (!pairs.length) {
       section.appendChild(el('p', 'aidebt-empty-findings',
         isNumber(values.aidebt_rlr_pairs) && values.aidebt_rlr_pairs > 0
@@ -472,17 +470,16 @@ window.registerExtension('aidebt/dashboard', function (options) {
       const top = el('div', 'aidebt-finding-top');
       const matchLabels = {
         'syntax-and-semantic-proxy': 'BOTH SIGNALS',
-        'semantic-proxy': 'BEHAVIOR PROXY',
+        'semantic-proxy': 'BEHAVIOR MATCH',
         'syntax': 'SYNTAX MATCH'
       };
-      top.append(el('strong', '', `${first.name || 'first callable'} ↔ ${second.name || 'second callable'}`),
+      top.append(pairHeading(`${first.name || 'first callable'} ↔ ${second.name || 'second callable'}`, index),
         el('span', 'aidebt-badge aidebt-status-caution', matchLabels[pair.matchedBy] || 'REDUNDANT PAIR'));
       const comparison = el('div', 'aidebt-rlr-comparison');
-      comparison.append(rlrFact('Pair', `#${index + 1}`),
-        rlrFact('Syntax similarity', number(pair.syntactic, 3)),
-        rlrFact('Semantic proxy', number(pair.semantic, 3)),
+      comparison.append(rlrFact('Syntax similarity', number(pair.syntactic, 3)),
+        rlrFact('Behavioral similarity', number(pair.semantic, 3)),
         rlrFact('Detected by', pair.matchedBy === 'syntax-and-semantic-proxy' ? 'both signals'
-          : pair.matchedBy === 'semantic-proxy' ? 'semantic proxy' : 'syntax'));
+          : pair.matchedBy === 'semantic-proxy' ? 'behavioral similarity' : 'syntax similarity'));
       const sources = el('div', 'aidebt-rlr-sources');
       sources.append(rlrSource(first, 'First callable'), rlrSource(second, 'Second callable'));
       card.append(top, comparison, sources);
@@ -500,6 +497,12 @@ window.registerExtension('aidebt/dashboard', function (options) {
     const fact = el('div', 'aidebt-rlr-fact');
     fact.append(el('span', '', label), el('strong', '', value));
     return fact;
+  }
+
+  function pairHeading(label, index) {
+    const heading = el('strong', 'aidebt-pair-heading');
+    heading.append(el('span', 'aidebt-pair-index', `PAIR ${index + 1}`), document.createTextNode(label));
+    return heading;
   }
 
   function rlrSource(block, label) {
@@ -523,10 +526,14 @@ window.registerExtension('aidebt/dashboard', function (options) {
       : isNumber(values.aidebt_sii_inconsistent) ? Math.round(values.aidebt_sii_inconsistent) : pairs.length;
     section.appendChild(sectionTitle('Detected naming–context inconsistencies',
       `${total} identifier pair${total === 1 ? '' : 's'} combined similar name concepts and behavior with different vocabulary`));
-    const note = el('div', 'aidebt-sii-note');
-    note.append(el('strong', '', 'How evidence is read'), el('p', '', 
-      'A finding needs all three signals: the names map to similar programming concepts, their AST usage contexts are aligned, and their normalized spellings are different. Similar code shape alone is never sufficient. The result is a vocabulary-consistency candidate, not automatic proof that either name is wrong.'));
+    const note = el('div', 'aidebt-analysis-note');
+    note.append(el('strong', '', 'Interpretation'), el('span', '',
+      'Each reported pair contains identifiers of the same kind whose names map to similar programming concepts and whose AST usage contexts are also similar, while their normalized names remain lexically different. The pair is a naming-review candidate; the analyzer does not decide which name is preferable.'));
     section.appendChild(note);
+    if (evidence.budgetReached) {
+      section.appendChild(el('p', 'aidebt-budget-warning',
+        `Pair budget reached after ${integer(evidence.analyzedPairs)} eligible identifier pairs. Increase sonar.aidebt.pairBudget and rescan before treating SII as a complete project-wide ratio.`));
+    }
     if (!pairs.length) {
       section.appendChild(el('p', 'aidebt-empty-findings',
         isNumber(values.aidebt_sii_pairs) && values.aidebt_sii_pairs > 0
@@ -541,12 +548,11 @@ window.registerExtension('aidebt/dashboard', function (options) {
       const kind = String(first.kind || second.kind || 'identifier');
       const card = el('article', 'aidebt-sii-pair aidebt-evidence-caution');
       const top = el('div', 'aidebt-finding-top');
-      top.append(el('strong', '', `${first.name || 'first identifier'} ↔ ${second.name || 'second identifier'}`),
+      top.append(pairHeading(`${first.name || 'first identifier'} ↔ ${second.name || 'second identifier'}`, index),
         el('span', 'aidebt-badge aidebt-status-caution', kind.toUpperCase()));
       const comparison = el('div', 'aidebt-rlr-comparison');
-      comparison.append(rlrFact('Pair', `#${index + 1}`),
-        rlrFact('Name semantics', number(pair.semantic, 3)),
-        rlrFact('Behavior context', number(pair.context, 3)),
+      comparison.append(rlrFact('Concept similarity', number(pair.semantic, 3)),
+        rlrFact('Usage-context similarity', number(pair.context, 3)),
         rlrFact('Name similarity', number(pair.lexical, 3)),
         rlrFact('Interpretation', 'same concept · different vocabulary'));
       const sources = el('div', 'aidebt-rlr-sources');
@@ -585,9 +591,9 @@ window.registerExtension('aidebt/dashboard', function (options) {
       : isNumber(values.aidebt_egr_unexplained) ? Math.round(values.aidebt_egr_unexplained) : blocks.filter(block => !block.hasRationale).length;
     section.appendChild(sectionTitle('Complex-block explanation audit',
       `${gaps} explanation gap${gaps === 1 ? '' : 's'} across ${total} complex or critical block${total === 1 ? '' : 's'}`));
-    const note = el('div', 'aidebt-egr-note');
-    note.append(el('strong', '', 'Selection and rationale'), el('p', '',
-      'A block enters this audit when cyclomatic complexity, nesting depth, or mixed control flow makes its intent costly to reconstruct. A comment or docstring closes the gap only when it contains rationale language about cause, intent, constraints, invariants, safety, fallback, performance, or validation. Ordinary descriptive comments do not qualify.'));
+    const note = el('div', 'aidebt-analysis-note');
+    note.append(el('strong', '', 'Interpretation'), el('span', '',
+      'A callable enters this audit when it crosses a provisional complexity, nesting, or combined control-flow criterion. It is considered explained only when an associated comment or docstring states a reason, constraint, invariant, safety concern, fallback, performance decision, or validation intent.'));
     section.appendChild(note);
     if (!blocks.length) {
       section.appendChild(el('p', 'aidebt-empty-findings',
@@ -598,8 +604,8 @@ window.registerExtension('aidebt/dashboard', function (options) {
 
     const table = el('div', 'aidebt-egr-table');
     const header = el('div', 'aidebt-egr-row aidebt-egr-header');
-    header.append(el('span', '', 'Block'), el('span', '', 'Location'), el('span', '', 'Cyclomatic complexity'),
-      el('span', '', 'Nesting'), el('span', '', 'Selected by'),
+    header.append(el('span', '', 'Block'), el('span', '', 'Location'), el('span', '', 'Complexity'),
+      el('span', '', 'Nesting'), el('span', '', 'Selection criteria'),
       el('span', '', 'Explanation'));
     table.appendChild(header);
     blocks.forEach(block => {
@@ -613,26 +619,21 @@ window.registerExtension('aidebt/dashboard', function (options) {
       table.appendChild(row);
     });
 
-    const gapHeading = el('h3', 'aidebt-cii-subtitle', 'Source evidence for explanation gaps');
-    const gapBlocks = blocks.filter(block => !block.hasRationale);
+    const gapHeading = el('h3', 'aidebt-cii-subtitle', 'Source evidence for selected blocks');
     const list = el('div', 'aidebt-egr-gaps');
-    if (!gapBlocks.length) {
-      list.appendChild(el('p', 'aidebt-empty-findings',
-        'Every selected complex block contains a rationale-bearing comment or docstring.'));
-    } else {
-      gapBlocks.forEach(block => {
-        const card = el('article', 'aidebt-egr-gap aidebt-evidence-caution');
+    blocks.forEach(block => {
+        const card = el('article', `aidebt-egr-gap ${block.hasRationale ? 'aidebt-evidence-positive' : 'aidebt-evidence-caution'}`);
         const top = el('div', 'aidebt-finding-top');
         top.append(el('strong', '', block.name || 'callable'),
-          el('span', 'aidebt-badge aidebt-status-caution', 'MISSING RATIONALE'));
+          el('span', `aidebt-badge ${block.hasRationale ? 'aidebt-status-positive' : 'aidebt-status-caution'}`,
+            block.hasRationale ? `${String(block.rationaleSource || 'rationale').toUpperCase()} RATIONALE` : 'MISSING RATIONALE'));
         const location = el('div', 'aidebt-cii-location',
           `${displayPath(block.file)} · lines ${integer(block.startLine)}–${integer(block.endLine)}`);
         const source = el('code', 'aidebt-source-code', 'Loading complex block…');
         card.append(top, location, source);
         loadArtifactSource(block.file, block.startLine, block.endLine, source);
         list.appendChild(card);
-      });
-    }
+    });
     section.append(table, gapHeading, list);
     if (evidence.truncated) {
       section.appendChild(el('p', 'aidebt-artifact-limit',
@@ -646,7 +647,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
     const labels = {
       'cyclomatic-complexity': 'cyclomatic complexity',
       'deep-nesting': 'deep nesting',
-      'mixed-control-flow': 'mixed control flow',
+      'mixed-control-flow': 'multiple control-flow types',
       'branch': 'branching',
       'iteration': 'iteration',
       'error': 'error handling',
@@ -667,9 +668,31 @@ window.registerExtension('aidebt/dashboard', function (options) {
     }
     const files = Array.isArray(evidence.files) ? evidence.files : [];
     const dependencies = Array.isArray(evidence.dependencies) ? evidence.dependencies : [];
+    const cycles = Array.isArray(evidence.cycles) ? evidence.cycles : [];
+    const stabilityViolations = Array.isArray(evidence.stabilityViolations) ? evidence.stabilityViolations : [];
     if (!files.length && !dependencies.length) {
       section.appendChild(el('p', 'aidebt-empty-findings', 'No incoming or outgoing Python dependencies were detected.'));
       return section;
+    }
+
+    const actionHeading = el('h3', 'aidebt-cii-subtitle', 'Actionable coupling findings');
+    const actions = el('div', 'aidebt-cii-actions');
+    cycles.forEach(cycle => {
+      const card = el('article', 'aidebt-cii-action aidebt-cii-cycle-action');
+      card.append(el('strong', '', `Dependency cycle ${integer(cycle.id)}`),
+        el('span', 'aidebt-badge aidebt-severity-high', '60 min'),
+        el('p', '', (cycle.modules || []).map(displayPath).join(' → ')));
+      actions.appendChild(card);
+    });
+    stabilityViolations.forEach(item => {
+      const card = el('article', 'aidebt-cii-action aidebt-cii-stability-action');
+      card.append(el('strong', '', 'Dependency toward a less stable module'),
+        el('span', 'aidebt-badge aidebt-status-caution', '20 min'),
+        el('p', '', `${displayPath(item.source)} (${number(item.sourceInstability, 3)}) → ${displayPath(item.target)} (${number(item.targetInstability, 3)}) · line ${integer(item.line)}`));
+      actions.appendChild(card);
+    });
+    if (!cycles.length && !stabilityViolations.length) {
+      actions.appendChild(el('p', 'aidebt-empty-findings', 'No internal dependency cycle or dependency toward a less stable analyzed module was detected.'));
     }
 
     const fileHeading = el('h3', 'aidebt-cii-subtitle', 'Per-file CII');
@@ -700,7 +723,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
       loadImportLine(dependency, source);
       list.appendChild(card);
     });
-    section.append(fileHeading, table, dependencyHeading, list);
+    section.append(actionHeading, actions, fileHeading, table, dependencyHeading, list);
     return section;
   }
 
@@ -723,7 +746,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
 
   function cdiEvidenceSection(values) {
     const section = el('section', 'aidebt-finding-section aidebt-cdi-section');
-    section.appendChild(sectionTitle('CDI block evidence', 'Complexity, nesting, and documentation status for every analyzed function'));
+    section.appendChild(sectionTitle('CDI block evidence', 'Complexity and documentation status for every analyzed function'));
     let evidence;
     try {
       evidence = JSON.parse(values.aidebt_cdi_evidence || '{}');
@@ -738,8 +761,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
 
     const note = el('div', 'aidebt-cdi-note');
     note.append(el('strong', '', 'Interpretation'), el('span', '',
-      'This table exposes the callable-level complexity and documentation evidence used by CDI. ' +
-      'The exact scoring equation is intentionally not displayed in the public dashboard.'));
+      'Callable blocks and decision points are different units: each callable can contribute zero, one, or several decision points. “Documented blocks” counts callables with an associated comment or docstring, while the decision-point totals measure the complexity carried by those callables.'));
     const table = el('div', 'aidebt-cdi-table');
     const header = el('div', 'aidebt-cdi-row aidebt-cdi-header');
     header.append(el('span', '', 'Callable block'), el('span', '', 'Lines'), el('span', '', 'Complexity'),
@@ -792,6 +814,10 @@ window.registerExtension('aidebt/dashboard', function (options) {
   function htsEvidenceSection(values) {
     const section = el('section', 'aidebt-finding-section aidebt-hts-section');
     section.appendChild(sectionTitle('HTS initialization evidence', 'Every ML initialization classified in the current analysis'));
+    const note = el('div', 'aidebt-analysis-note');
+    note.append(el('strong', '', 'Interpretation'), el('span', '',
+      'HTS classifies each supported model initialization by how clearly its configuration is expressed in source code. Explicit and statically resolvable configuration is transparent; missing or opaque configuration requires review.'));
+    section.appendChild(note);
     let evidence;
     try { evidence = JSON.parse(values.aidebt_hts_evidence || '{}'); } catch (_) { evidence = {}; }
     const initializations = Array.isArray(evidence.initializations) ? evidence.initializations : [];
@@ -815,8 +841,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
         : item.category === 'config-driven' ? `Resolved configuration keys: ${listText(item.resolvedConfigKeys)}.`
         : `Explicit keyword arguments: ${listText(item.keywordArguments)}${Number(item.positionalArguments) ? `; positional arguments: ${integer(item.positionalArguments)}` : ''}.`;
       details.append(htsDetail('Classification', configuration),
-        htsDetail('Framework', item.framework || 'unknown'),
-        htsDetail('Additional diagnostics', [item.missingSeed ? 'missing random seed' : '', item.unpinnedRevision ? 'unpinned model revision' : ''].filter(Boolean).join(', ') || 'none'));
+        htsDetail('Framework', item.framework || 'unknown'));
       card.append(top, location, source, details);
       loadArtifactSource(item.file, item.line, item.line, source);
       list.appendChild(card);
@@ -837,6 +862,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
 
   function rulesForMetric(short) {
     if (short === 'HTS') return ['opaque-ml-config','missing-random-seed','unpinned-model-revision'];
+    if (short === 'CII') return ['coupling-cycle','unstable-dependency-direction'];
     if (short === 'CSD') return ['context-switch'];
     if (short === 'RLR') return ['redundant-logic'];
     if (short === 'SII') return ['semantic-name-inconsistency'];
@@ -963,12 +989,12 @@ window.registerExtension('aidebt/dashboard', function (options) {
         'It relates detected SpecDetect4AI findings to the amount of analyzed source code while preserving each finding as source-located evidence.',
         'Higher values indicate a denser concentration of AI-associated risks that deserve closer review.', 'No logical source lines were available.'),
       metric('CII', 'Coupling instability index', v.aidebt_cii, v.aidebt_weight_cii,
-        [{label:'Project total Ca',value:integer(v.aidebt_cii_ca)},{label:'Project total Ce',value:integer(v.aidebt_cii_ce)},{label:'Project internal import edges',value:integer(v.aidebt_cii_internal_dependencies)},{label:'Project external import edges',value:integer(v.aidebt_cii_external_dependencies)},{label:'Coupled files in mean',value:integer(v.aidebt_cii_coupled_files)}],
+        [{label:'Project total Ca',value:integer(v.aidebt_cii_ca)},{label:'Project total Ce',value:integer(v.aidebt_cii_ce)},{label:'Project internal import edges',value:integer(v.aidebt_cii_internal_dependencies)},{label:'Project external import edges',value:integer(v.aidebt_cii_external_dependencies)},{label:'Coupled files in mean',value:integer(v.aidebt_cii_coupled_files)},{label:'Dependency cycles',value:integer(v.aidebt_cii_cycles)},{label:'Stability-direction violations',value:integer(v.aidebt_cii_stability_violations)},{label:'Remediation actions',value:integer(v.aidebt_cii_remediation_actions)}],
         'Describes how dependent project modules are on other modules and how exposed they are to change.',
         'It examines incoming and outgoing dependencies for each coupled Python file and summarizes project-level structural instability.',
         'Higher values indicate modules that rely more heavily on outward dependencies and may be more fragile under change.', 'No incoming or outgoing dependencies were detected.'),
       metric('CDI', 'Complexity–documentation imbalance', cdiInputsReady ? v.aidebt_cdi_score : undefined, v.aidebt_weight_cdi,
-        [{label:'Mean complexity',value:number(v.aidebt_cdi_mean_complexity,3)},{label:'Total decision complexity',value:cdiInputsReady ? integer(v.aidebt_cdi_total_complexity_excess) : 'N/A'},{label:'Undocumented decision complexity',value:cdiInputsReady ? integer(v.aidebt_cdi_undocumented_complexity_excess) : 'N/A'},{label:'Comment density',value:percent(v.aidebt_cdi_comment_density)},{label:'Documented blocks',value:integer(v.aidebt_cdi_documented_blocks)},{label:'Documentation coverage',value:percent(v.aidebt_cdi_documentation_coverage)},{label:'Comment lines',value:integer(v.aidebt_cdi_comment_lines)},{label:'Source lines',value:integer(v.aidebt_cdi_source_lines)}],
+        [{label:'Analyzed callable blocks',value:integer(v.aidebt_cdi_blocks)},{label:'Mean cyclomatic complexity',value:number(v.aidebt_cdi_mean_complexity,3)},{label:'Total decision points',value:cdiInputsReady ? integer(v.aidebt_cdi_total_complexity_excess) : 'N/A'},{label:'Undocumented decision points',value:cdiInputsReady ? integer(v.aidebt_cdi_undocumented_complexity_excess) : 'N/A'},{label:'Documented blocks',value:integer(v.aidebt_cdi_documented_blocks)},{label:'Documentation coverage',value:percent(v.aidebt_cdi_documentation_coverage)},{label:'Comment density',value:percent(v.aidebt_cdi_comment_density)},{label:'Comment lines',value:integer(v.aidebt_cdi_comment_lines)},{label:'Source lines',value:integer(v.aidebt_cdi_source_lines)}],
         cdiInputsReady ? 'Highlights complex callable blocks whose intent and behavior are not adequately supported by nearby documentation.' : 'A fresh analysis is required for the current CDI evidence model.',
         'It compares callable-level cyclomatic complexity with comments, docstrings, and documentation coverage across the project.',
         'Higher values indicate that a larger share of decision complexity is insufficiently documented.', 'No analyzable block was found.'),
@@ -980,7 +1006,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
       metric('CSD', 'Context switching density', v.aidebt_csd, v.aidebt_weight_csd,
         [{label:'Low-similarity switches',value:integer(v.aidebt_csd_switches)},{label:'Block transitions',value:integer(v.aidebt_csd_transitions)}],
         'Estimates how often consecutive callable blocks abruptly break the coding style and structural pattern a reader has just formed.',
-        'It compares naming conventions, coding idioms, and structural shape between neighboring same-scope callables; responsibility differences are deliberately excluded.',
+        'It compares naming conventions, coding idioms, and structural shape between neighboring same-scope callables.',
         'Higher values indicate more frequent style–structure discontinuities that may force readers to rebuild their mental model.', 'Fewer than two same-scope adjacent callable blocks existed.'),
       metric('RLR', 'Redundant logic ratio', v.aidebt_rlr, v.aidebt_weight_rlr,
         [{label:'Redundant pairs',value:integer(v.aidebt_rlr_redundant)},{label:'Analyzed pairs',value:integer(v.aidebt_rlr_pairs)}],
@@ -989,9 +1015,9 @@ window.registerExtension('aidebt/dashboard', function (options) {
         'Higher values suggest duplicated behavior that may require repeated maintenance and can drift over time.', 'Fewer than two analyzable blocks were available.'),
       metric('SII', 'Semantic inconsistency index', v.aidebt_sii, v.aidebt_weight_sii,
         [{label:'Inconsistent pairs',value:integer(v.aidebt_sii_inconsistent)},{label:'Identifier pairs',value:integer(v.aidebt_sii_pairs)},{label:'Contextual identifiers',value:integer(v.aidebt_sii_identifiers)}],
-        'Finds same-kind identifiers that express the same programming concept in similar behavioral contexts but use different vocabulary.',
-        'It combines semantic normalization of identifier tokens, deterministic AST-context similarity, and normalized Levenshtein name similarity. Structural resemblance by itself cannot create a finding.',
-        'Higher values indicate that equivalent concepts are expressed with inconsistent vocabulary, increasing the effort needed to infer intent.', 'Fewer than two comparable contextual identifiers were available.'),
+        'Detects vocabulary drift: identifiers of the same kind that appear to represent the same concept in similar code contexts but use noticeably different names.',
+        'It normalizes identifier tokens into programming concepts, compares how the identifiers are used in the AST, and measures lexical name similarity.',
+        'Higher values suggest that readers must learn multiple names for the same project concept, increasing interpretation and maintenance effort.', 'Fewer than two same-kind identifiers with analyzable usage context were available.'),
       metric('EGR', 'Explanation gap ratio', v.aidebt_egr, v.aidebt_weight_egr,
         [{label:'Without rationale',value:integer(v.aidebt_egr_unexplained)},{label:'Complex / critical blocks',value:integer(v.aidebt_egr_complex)},{label:'Cyclomatic-complexity-triggered',value:integer(v.aidebt_egr_cc_triggered)},{label:'Nesting-triggered',value:integer(v.aidebt_egr_nesting_triggered)},{label:'Mixed-flow-triggered',value:integer(v.aidebt_egr_control_flow_triggered)}],
         'Identifies complex callable blocks that lack a meaningful explanation of why the complexity is necessary.',
@@ -1036,36 +1062,27 @@ window.registerExtension('aidebt/dashboard', function (options) {
         : 'Both technical and cognitive profiles contributed using their configured shares.'};
   }
 
-  function estimateMetricEffort(short, v, issues) {
-    const count = value => isNumber(value) ? Math.max(0, Math.round(value)) : 0;
-    if (short === 'AISD') {
-      const findings = issues.filter(issue => /^specdetect-/i.test(ruleForIssue(issue)));
-      return findings.length
-        ? findings.reduce((minutes, issue) => minutes + specDetectEffort(ruleForIssue(issue)), 0)
-        : count(v.aidebt_aisd_smells) * 20;
-    }
-    if (short === 'CII') return count(v.aidebt_cii_ce) * 10;
-    if (short === 'CDI') return count(v.aidebt_cdi_undocumented_complexity_excess) * 10;
-    if (short === 'HTS') return count(v.aidebt_hts_implicit) * 20 + count(v.aidebt_hts_opaque_config) * 60;
-    if (short === 'CSD') return count(v.aidebt_csd_switches) * 10;
-    if (short === 'RLR') return count(v.aidebt_rlr_redundant) * 60;
-    if (short === 'SII') return count(v.aidebt_sii_inconsistent) * 20;
-    if (short === 'EGR') return count(v.aidebt_egr_unexplained) * 20;
-    return 0;
-  }
-
-  function specDetectEffort(rule) {
-    const id = String(rule || '').replace('specdetect-', '').toLowerCase();
-    if (['r4','r7','r9','r10','r11','r11bis','r22'].includes(id)) return 60;
-    if (['r1','r3','r12','r14','r15','r18','r20','r21','r24'].includes(id)) return 10;
-    return 20;
-  }
-
-  function effortLabel(minutes) {
+  function effortLabel(estimate, metricLabel) {
     const item = el('div', 'aidebt-effort');
-    item.title = 'Estimated remediation workload; one SonarQube day equals 8 hours. This is a calibration-ready estimate, not measured developer time.';
-    item.append(el('span', '', 'Estimated remediation'), el('strong', '', duration(minutes)));
+    if (!estimate.estimable) {
+      item.title = estimate.reason || 'No defensible remediation unit is available.';
+      item.append(el('span', '', 'Remediation workload'), el('strong', '', 'Not estimated'));
+      return item;
+    }
+    if (metricLabel === 'CII' && (estimate.actions || 0) === 0) {
+      item.title = 'CII was calculated, but no dependency cycle or stability-direction violation was detected.';
+      item.append(el('span', '', 'Remediation effort'), el('strong', '', 'No action'));
+      return item;
+    }
+    item.title = `${estimate.actions || 0} deduplicated remediation action(s).`;
+    item.append(el('span', '', 'Remediation effort'),
+      el('strong', '', duration(isNumber(estimate.minutes) ? estimate.minutes : estimate.centralMinutes)));
     return item;
+  }
+
+  function parseJson(value) {
+    if (!value || typeof value !== 'string') return {};
+    try { return JSON.parse(value); } catch (_) { return {}; }
   }
 
   function duration(minutes) {
@@ -1083,10 +1100,12 @@ window.registerExtension('aidebt/dashboard', function (options) {
     return `${days}d${hours ? ` ${hours}h` : ''}${mins ? ` ${mins}m` : ''}`;
   }
 
-  function methodologyNote() {
-    const note = el('footer', 'aidebt-methodology');
-    note.append(el('strong', '', 'Interpretation boundary'),
-      el('span', '', 'Low / moderate / high bands are screening aids, not empirically validated risk thresholds. Remediation time is a rule-based workload estimate derived from detected actions; one day is 8 hours and the coefficients should be calibrated with observed developer time.'));
+  function effortConvention() {
+    const note = el('aside', 'aidebt-effort-convention');
+    note.append(el('span', 'aidebt-effort-convention-label', 'EFFORT STANDARD'),
+      el('span', '', '1 day = 8 work hours'),
+      el('span', 'aidebt-effort-convention-separator', '•'),
+      el('span', '', 'SonarSource standard categories for Python'));
     return note;
   }
 

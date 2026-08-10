@@ -36,6 +36,9 @@ class ScoreAggregatorTest {
     for (MetricKey key : MetricKey.values()) weights.put(key, 0.25);
     weights.put(MetricKey.AISD, 0.3);
     assertThrows(IllegalArgumentException.class, () -> new AnalysisConfig(
-        weights, 0.5, 0.5, 20, 0.45, 0.85, 0.9, 0.75, 0.4, 5));
+        weights, 0.5, 0.5, 20,
+        0.45, 1.0 / 3, 1.0 / 3, 1.0 / 3,
+        0.85, 0.9, 1.0 / 3, 1.0 / 3, 1.0 / 3,
+        0.75, 0.75, 0.4, 5, 3, 4, 2, 20_000));
   }
 }

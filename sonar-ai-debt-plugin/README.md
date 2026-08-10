@@ -36,10 +36,37 @@ sonar.aidebt.tdsi.weights=0.25,0.25,0.25,0.25
 sonar.aidebt.cogdi.weights=0.25,0.25,0.25,0.25
 sonar.aidebt.index.weights=0.5,0.5
 sonar.aidebt.csd.similarityThreshold=0.45
+sonar.aidebt.csd.componentWeights=0.333333333333,0.333333333333,0.333333333334
+sonar.aidebt.rlr.syntaxSimilarityThreshold=0.85
+sonar.aidebt.rlr.behaviorSimilarityThreshold=0.90
+sonar.aidebt.rlr.behaviorComponentWeights=0.333333333333,0.333333333333,0.333333333334
+sonar.aidebt.sii.conceptSimilarityThreshold=0.75
+sonar.aidebt.sii.contextSimilarityThreshold=0.75
+sonar.aidebt.sii.nameSimilarityCeiling=0.40
+sonar.aidebt.egr.complexityThreshold=5
+sonar.aidebt.egr.nestingThreshold=3
+sonar.aidebt.egr.mixedFlowComplexityThreshold=4
+sonar.aidebt.egr.mixedFlowKindThreshold=2
+sonar.aidebt.pairBudget=1000000
 ```
 
 Weights must be non-negative and sum to one within each line. Conditional metrics, such as hyperparameter debt when no ML model is initialized, are marked not applicable and the remaining weights are renormalized. `aidebt_metric_coverage` reports how much configured weight was applicable.
-The CSD threshold is provisional until calibrated on independently labeled same-scope transitions; do not optimize it to separate Human from AI code.
+All listed decision thresholds are provisional engineering defaults. Calibrate them on
+independently labeled examples, freeze them before confirmatory Human–AI comparison, and
+do not tune them to maximize separation between code-origin groups. Pairwise metrics
+report when the configured analysis budget is reached.
+
+The plug-in can export every pre-threshold CSD, RLR, SII, and EGR candidate for
+provenance-blind calibration:
+
+```properties
+sonar.aidebt.calibration.exportPath=.aidebt-calibration/project-a.jsonl
+sonar.aidebt.calibration.groupId=project-family-a
+```
+
+Leave `calibration.exportPath` unset during ordinary analysis. The complete sampling,
+annotation, grouped-validation, bootstrap, and threshold-freezing procedure is documented
+in [Threshold Calibration Protocol](docs/THRESHOLD_CALIBRATION.md).
 
 ## Reproducible weighting
 
@@ -55,7 +82,7 @@ python3 research/calibrate_weights.py \
   --output research/output/weights.json
 ```
 
-AISD is sourced from the external SpecDetect4AI R1–R24 report. Generate `specDetect4ai_results.json` before scanning; without it AISD is reported as not applicable. See [SpecDetect4AI integration](docs/SPECDETECT4AI.md), [metric specification](docs/METRICS.md), [AISD evidence and rule provenance](docs/AISD_EVIDENCE.md), [validation protocol](docs/VALIDATION.md), and [architecture](docs/ARCHITECTURE.md) before interpreting scores.
+AISD is sourced from the external SpecDetect4AI R1–R24 report. Generate `specDetect4ai_results.json` before scanning; without it AISD is reported as not applicable. See [SpecDetect4AI integration](docs/SPECDETECT4AI.md), [metric specification](docs/METRICS.md), [AISD evidence and rule provenance](docs/AISD_EVIDENCE.md), [threshold calibration](docs/THRESHOLD_CALIBRATION.md), [validation protocol](docs/VALIDATION.md), and [architecture](docs/ARCHITECTURE.md) before interpreting scores.
 
 For a clean-room, ACM-oriented installation, execution, output-export, and reuse
 procedure, see the [research artifact documentation](docs/RESEARCH_ARTIFACT.md).

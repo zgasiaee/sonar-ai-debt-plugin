@@ -228,6 +228,12 @@ public final class FindingCatalog {
     add(rules, "AIDEBT-PY-024", "large-class", "Large class", "MEDIUM",
         "A large class commonly accumulates unrelated responsibilities and change reasons.",
         "Separate cohesive responsibilities into smaller collaborating classes.");
+    add(rules, "AIDEBT-PY-025", "coupling-cycle", "Internal dependency cycle", "HIGH",
+        "A dependency cycle prevents the participating modules from changing or being reused independently.",
+        "Break the cycle by moving the shared contract to a lower-level module or by inverting one dependency.");
+    add(rules, "AIDEBT-PY-026", "unstable-dependency-direction", "Dependency toward a less stable module", "MEDIUM",
+        "A more stable module depending on a less stable module propagates change toward code with more dependents.",
+        "Review the import boundary and depend on a stable abstraction, invert the dependency, or merge modules that form one cohesive responsibility.");
     addSpec(rules, "R1", "Broadcasting feature not used", "MEDIUM",
         "Explicit tensor tiling can duplicate memory when broadcasting would suffice.",
         "Review the operation and replace tf.tile with broadcasting when shapes permit it.");

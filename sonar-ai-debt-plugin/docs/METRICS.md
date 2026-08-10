@@ -48,37 +48,60 @@ The analyzer resolves import aliases and recognizes common scikit-learn, XGBoost
 
 For CSD, *context* is the local style–structure pattern a reader builds while moving through consecutive code blocks. It has three independently normalized similarity channels:
 
-- naming style (`30%`): presence of casing conventions, function-name token shape, private prefixes, and Boolean-name prefixes across the function, parameters, and identifiers. Single-word lowercase and underscore-separated lowercase names both belong to Python's snake-case convention. Category presence is binary, so a larger function does not look stylistically different merely because it contains more or longer names;
-- coding patterns (`40%`): AST idioms such as loops, comprehensions, branching, exception handling, context managers, assignments, Boolean chains, calls, returns, raises, and awaits;
-- structural shape (`30%`): relative proximity of cyclomatic complexity, maximum nesting, source length, parameter count, and normalized-token count.
+- naming style: presence of casing conventions, function-name token shape, private prefixes, and Boolean-name prefixes across the function, parameters, and identifiers. Single-word lowercase and underscore-separated lowercase names both belong to Python's snake-case convention. Category presence is binary, so a larger function does not look stylistically different merely because it contains more or longer names;
+- coding patterns: AST idioms such as loops, comprehensions, branching, exception handling, context managers, assignments, Boolean chains, calls, returns, raises, and awaits;
+- structural shape: relative proximity of cyclomatic complexity, maximum nesting, source length, parameter count, and normalized-token count.
 
 Each channel is in `[0, 1]`, preventing a raw count from dominating the model. Semantic vocabulary and operational responsibility (for example, local computation versus network access) are intentionally excluded: they describe what a function does, not how its code is styled. CSD therefore measures convention, idiom, and shape discontinuity. Callables are grouped by lexical scope (`<module>`, class, or enclosing function), ordered by source line, and only consecutive callables in the same scope form transitions. A class method is therefore not compared with a surrounding module-level function, and a scope with fewer than two callables contributes no transition. Adjacent same-scope callables below the configured similarity threshold are context switches:
 
 `CSD = low-similarity adjacent transitions / all adjacent transitions`
 
-The default similarity threshold is `0.45`. It is a provisional engineering default, not an empirically validated universal boundary. Configure it with `sonar.aidebt.csd.similarityThreshold`, select the final value on a labeled calibration partition, then freeze it before Human-vs-AI confirmatory evaluation. The denominator count and distribution summaries remain published as diagnostics, while the compact CSD artifact stores only detected switches and their names, locations, overall/component similarities, scope, and threshold.
+The neutral default gives the three channels equal weight and uses a similarity threshold of
+`0.45`. Both are provisional engineering defaults, not empirically validated universal
+parameters. Configure them with `sonar.aidebt.csd.componentWeights` and
+`sonar.aidebt.csd.similarityThreshold`, fit them jointly on a labeled calibration partition,
+then freeze them before Human-vs-AI confirmatory evaluation. The denominator count and
+distribution summaries remain published as diagnostics, while the compact CSD artifact
+stores only detected switches and their names, locations, overall/component similarities,
+scope, and threshold.
 
 ### RLR — Redundant Logic Ratio
 
-Function pairs are redundant when either normalized four-token shingle similarity is at least `0.85`, or a combined deterministic semantic proxy is at least `0.90`. The proxy combines structural behavior (60%), call-set similarity (25%), and returned-identifier similarity (15%):
+Function pairs are redundant when either normalized four-token shingle similarity is at least
+`0.85`, or a combined deterministic behavioral-similarity proxy is at least `0.90`. The
+proxy combines structural behavior, call-set similarity, and returned-identifier similarity;
+the neutral default assigns equal weight to the three channels:
 
 `RLR = redundant function pairs / analyzed function pairs`
 
-This explicitly includes syntactic and lightweight semantic redundancy without downloading an embedding model during a scan. The semantic value is a deterministic static proxy rather than proof of runtime equivalence. RLR analyzes callable pairs; repeated variable names alone are not counted because they do not establish duplicated behavior. Every detected pair retains both callable source ranges and both similarity signals for dashboard auditing. The published evidence is capped at 25 pairs for responsiveness, while the metric numerator retains every detected pair within the analyzed pair budget.
+This explicitly includes syntactic and lightweight behavioral redundancy without downloading
+an embedding model during a scan. The behavioral value is a deterministic static proxy rather
+than proof of runtime equivalence. RLR analyzes callable pairs; repeated variable names alone
+are not counted because they do not establish duplicated behavior. Every detected pair retains
+both callable source ranges and both similarity signals for dashboard auditing. The published
+evidence is capped at 25 pairs for responsiveness, while the metric numerator retains every
+detected pair within the configured analysis budget. The boundaries and behavioral component
+weights are provisional, configurable, and fitted jointly.
 
 ### SII — Semantic Inconsistency Index
 
 SII extracts function names, simple assigned-variable names, and class names with observable method context. Only identifiers of the same kind are compared. Identifier tokens are normalized to a small, versioned programming-concept vocabulary (for example, `calculate`/`compute` and `sum`/`total`). Each identifier also receives a deterministic numeric AST-context embedding: callable embeddings represent control flow, coding patterns, call families, complexity, nesting, and parameter shape; assigned-variable embeddings represent the AST shape and call/operator context of their assigned expressions; class embeddings aggregate their methods.
 
-Three independent conditions are required. The normalized identifier concepts must be similar, the AST-context embeddings must be similar, and normalized Levenshtein similarity must be low. Callable pairs already classified as redundant by RLR are excluded from SII so the same duplicated implementation is not counted twice in CogDI. The default semantic and context thresholds are `0.75`; the lexical threshold is `0.40`:
+Three independent conditions are required. The normalized identifier concepts must be similar, the AST-context embeddings must be similar, and normalized Levenshtein similarity must be low. Callable pairs already classified as redundant by RLR are excluded from SII so the same duplicated implementation is not counted twice in CogDI. The provisional concept and context thresholds are independently configurable and default to `0.75`; the provisional lexical ceiling defaults to `0.40`:
 
 `SII = high-concept/high-context/low-lexical same-kind identifier pairs / analyzed same-kind identifier pairs`
 
-This hybrid guard prevents similarly shaped but conceptually different functions from being flagged and keeps callable-level redundancy in RLR. It is an offline, reproducible concept representation rather than a pretrained natural-language word embedding. Its coverage is therefore limited to the declared concept vocabulary and exact unmatched tokens; it does not prove synonymy or that either name is incorrect. Every detected pair retains both source ranges, all three similarities, and identifier kind. The evidence artifact is capped at 25 pairs while the numerator retains every detection within the analyzed-pair budget.
+This hybrid guard prevents similarly shaped but conceptually different functions from being flagged and keeps callable-level redundancy in RLR. It is an offline, reproducible concept representation rather than a pretrained natural-language word embedding. Its coverage is therefore limited to the declared concept vocabulary and exact unmatched tokens; it does not prove synonymy or that either name is incorrect. Every detected pair retains both source ranges, all three similarities, and identifier kind. The evidence artifact is capped at 25 pairs while the numerator retains every detection within the configured analysis budget.
 
 ### EGR — Explanation Gap Ratio
 
 A callable enters the complex/critical set when at least one auditable criterion holds: cyclomatic complexity reaches the configured default `5`; maximum control-flow nesting reaches `3`; or complexity is at least `4` while at least two control-flow families (branching, iteration, error handling, async flow, or resource scope) are present. These engineering defaults must be calibrated on independently labeled blocks.
+
+All EGR selection boundaries are configurable. “Multiple control-flow types” means that
+the callable meets the combined criterion: it has at least the configured complexity and
+contains at least the configured number of distinct control-flow families. A block may
+legitimately satisfy more than one selection criterion; the evidence lists every criterion
+it satisfies.
 
 Associated comments and function docstrings are inspected. A rationale must contain a whole rationale term or phrase expressing cause, intent, invariant, safety, performance, fallback, retry, or validation language; an arbitrary descriptive comment is insufficient. External Markdown is not automatically credited because the analyzer cannot reliably establish which exact block it explains without an explicit traceable link.
 
@@ -96,17 +119,27 @@ The current-analysis evidence artifact records every selected block (up to the U
 
 The normalized debt scores and remediation effort answer different questions and are not converted into one another. Scores describe relative debt severity; effort estimates the work needed to review or remediate the detected, countable actions. Following [SonarQube's technical-debt model](https://docs.sonarsource.com/sonarqube-server/user-guide/code-metrics/metrics-definition), effort is accumulated in minutes and one displayed day is eight hours.
 
-The initial, calibration-ready coefficients use [SonarSource's standard remediation durations](https://docs.sonarsource.com/sonarqube-server/2026.1/extension-guide/adding-coding-rules) for non-ABAP/COBOL languages (`5 min`, `10 min`, `20 min`, `1 h`, `3 h`, and `1 d`) as anchors:
+The fixed policy follows [SonarSource's standard remediation durations](https://docs.sonarsource.com/sonarqube-server/extension-guide/adding-coding-rules) for languages other than ABAP and COBOL. Each unique repair action is classified as easy (`10 min`), medium (`20 min`), or major (`60 min`). These values are standardized remediation costs, not predictions of an individual developer's elapsed time.
 
-| Signal | Countable remediation unit | Initial effort |
-|---|---|---:|
-| AISD | One source-located SpecDetect4AI finding | 10, 20, or 60 min by rule complexity |
-| CII | One outgoing dependency requiring review | 10 min |
-| CDI | One undocumented decision-complexity point | 10 min |
-| HTS | One implicit / opaque ML initialization | 20 / 60 min |
-| CSD | One low-similarity block transition | 10 min |
-| RLR | One redundant callable pair | 60 min |
-| SII | One behavior/name-inconsistent pair | 20 min |
-| EGR | One complex block without rationale | 20 min |
+| Signal | Countable remediation unit | Action policy |
+|---|---|---|
+| AISD | One unique source-located SpecDetect4AI occurrence | Easy, moderate, or major by rule family |
+| CII | None until a concrete dependency violation and repair are defined | Not estimated |
+| CDI | One undocumented callable block with decision complexity | Tiered by block complexity |
+| HTS | One implicit or opaque ML initialization | Moderate or major |
+| CSD | One flagged target callable in a style–structure transition | Easy |
+| RLR | Minimum redundant implementations to consolidate per connected redundancy cluster | Major |
+| SII | Minimum distinct names to harmonize per connected inconsistency cluster | Moderate |
+| EGR | One selected complex block without rationale | Tiered by block complexity |
 
-TDSI effort is the sum of its technical remediation actions, CogDI effort is the sum of its cognitive remediation actions, and ADSI effort is their sum. These are workload estimates, not observed elapsed time or confidence intervals. Before reporting them as empirical findings, calibrate the coefficients against completed remediation tasks (for example, median active minutes per rule family with interquartile ranges) and perform sensitivity analysis. Metric availability is also separate: `100%` means every configured weighted metric had sufficient inputs and none was `N/A`; it does not mean the analyzer has perfect detection coverage or confidence.
+The tier is based on repair scope rather than debt severity: easy means one localized edit;
+medium means several related local edits or configuration decisions; and major means a
+multi-step behavioral, data-flow, or consolidation change. For SpecDetect4AI, R2, R6, R8,
+R12–R16, R18, R20, R21, and R24 are easy; R1, R3, R5, R17, R19, and R23 are medium; and
+R4, R7, R9–R11bis, and R22 are major. The policy deliberately does not use SonarSource's
+high (`3 h`) or complex (`1 d`) categories because the current static evidence does not
+establish project-wide repair scope strongly enough to justify those larger costs.
+
+Metric-specific workload sums unique actions within that metric. TDSI, CogDI, and ADSI workload deduplicate shared repair keys before summing; for example, one rationale added to a block can address both CDI and EGR, and one explicit ML configuration can address both AISD R5 and HTS. The larger applicable tier is retained for a shared action. This prevents obvious double counting while preserving both metric signals.
+
+The exact policy identifier, tier assignments, and deduplicated action counts are published in the `aidebt_effort_model` JSON measure, making the result reproducible across scans. Metric availability is separate: `100%` means every configured weighted metric had sufficient inputs and none was `N/A`; it does not mean perfect detection coverage or confidence.

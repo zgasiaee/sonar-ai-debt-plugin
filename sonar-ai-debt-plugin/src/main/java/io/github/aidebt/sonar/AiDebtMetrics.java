@@ -21,6 +21,8 @@ public final class AiDebtMetrics implements Metrics {
   public static final Metric<Double> COGDI = metric("aidebt_cogdi", "CogDI", "Normalized Cognitive Debt Index");
   public static final Metric<Double> ADSI = metric("aidebt_adsi", "ADSI", "Aggregated AI-code Debt Severity Index");
   public static final Metric<Double> COVERAGE = percentage("aidebt_metric_coverage", "Metric applicability", "Share of configured metric weight that was applicable");
+  public static final Metric<String> EFFORT_MODEL = data("aidebt_effort_model", "Remediation workload model",
+      "Deduplicated action-based standardized remediation effort and policy provenance as JSON");
 
   // Analysis scope diagnostics
   public static final Metric<Double> FILES = diagnostic("aidebt_files", "Analyzed files", "Supported main-source files analyzed");
@@ -44,11 +46,15 @@ public final class AiDebtMetrics implements Metrics {
   public static final Metric<Double> CII_COUPLED_FILES = diagnostic("aidebt_cii_coupled_files", "CII coupled files", "Files with at least one incoming or outgoing dependency");
   public static final Metric<Double> CII_INTERNAL = diagnostic("aidebt_cii_internal_dependencies", "Internal dependencies", "Resolved dependencies between analyzed Python modules");
   public static final Metric<Double> CII_EXTERNAL = diagnostic("aidebt_cii_external_dependencies", "External dependencies", "Imports not resolved to an analyzed Python module");
+  public static final Metric<Double> CII_CYCLES = diagnostic("aidebt_cii_cycles", "Internal dependency cycles", "Strongly connected internal dependency components containing more than one module");
+  public static final Metric<Double> CII_STABILITY_VIOLATIONS = diagnostic("aidebt_cii_stability_violations", "Stability-direction violations", "Internal imports from a more stable module toward a less stable module");
+  public static final Metric<Double> CII_REMEDIATION_ACTIONS = diagnostic("aidebt_cii_remediation_actions", "CII remediation actions", "Deduplicated dependency-cycle and stability-direction repair actions");
   public static final Metric<String> CII_EVIDENCE = data("aidebt_cii_evidence", "CII dependency evidence", "Per-file coupling and source-located import evidence as JSON");
   public static final Metric<Double> CDI_MEAN_COMPLEXITY = diagnostic("aidebt_cdi_mean_complexity", "CDI mean complexity", "Mean cyclomatic complexity of analyzed blocks");
   public static final Metric<Double> CDI_COMMENT_DENSITY = diagnostic("aidebt_cdi_comment_density", "CDI comment density", "Comment lines divided by source lines");
   public static final Metric<Double> CDI_COMMENT_LINES = diagnostic("aidebt_cdi_comment_lines", "CDI comment lines", "Comment-line numerator");
   public static final Metric<Double> CDI_SOURCE_LINES = diagnostic("aidebt_cdi_source_lines", "CDI source lines", "Code plus comment-line denominator");
+  public static final Metric<Double> CDI_BLOCKS = diagnostic("aidebt_cdi_blocks", "CDI callable blocks", "Callable blocks analyzed for complexity and documentation");
   public static final Metric<Double> CDI_MEAN_NESTING = diagnostic("aidebt_cdi_mean_nesting", "Mean nesting", "Mean maximum AST control-flow nesting over functions");
   public static final Metric<Double> CDI_DOCUMENTED_BLOCKS = diagnostic("aidebt_cdi_documented_blocks", "Documented blocks", "Functions with a docstring or associated comments");
   public static final Metric<Double> CDI_DOCUMENTATION_COVERAGE = diagnostic("aidebt_cdi_documentation_coverage", "Documentation coverage", "Share of functions with documentation evidence");
@@ -110,12 +116,14 @@ public final class AiDebtMetrics implements Metrics {
 
   public static final List<Metric> ALL = List.of(
       AISD, AISD_SCORE, CII, CDI, CDI_SCORE, HTS, CSD, RLR, SII, EGR, TDSI, COGDI, ADSI, COVERAGE,
+      EFFORT_MODEL,
       FILES, LOGICAL_LINES, BLOCKS, AISD_SMELLS, AISD_KLOC,
       SMELL_BROAD_EXCEPT, SMELL_MUTABLE_DEFAULT, SMELL_WILDCARD_IMPORT, SMELL_DEBUG_OUTPUT,
       SMELL_UNSAFE_EVAL, SMELL_PLACEHOLDER, SMELL_SWALLOWED_EXCEPTION, SMELL_EVALUATION_LEAKAGE,
       SMELL_HARDCODED_SECRET,
-      CII_CA, CII_CE, CII_COUPLED_FILES, CII_INTERNAL, CII_EXTERNAL, CII_EVIDENCE,
-      CDI_MEAN_COMPLEXITY, CDI_COMMENT_DENSITY, CDI_COMMENT_LINES, CDI_SOURCE_LINES,
+      CII_CA, CII_CE, CII_COUPLED_FILES, CII_INTERNAL, CII_EXTERNAL, CII_CYCLES,
+      CII_STABILITY_VIOLATIONS, CII_REMEDIATION_ACTIONS, CII_EVIDENCE,
+      CDI_MEAN_COMPLEXITY, CDI_COMMENT_DENSITY, CDI_COMMENT_LINES, CDI_SOURCE_LINES, CDI_BLOCKS,
       CDI_MEAN_NESTING, CDI_DOCUMENTED_BLOCKS, CDI_DOCUMENTATION_COVERAGE, CDI_EVIDENCE,
       CDI_TOTAL_COMPLEXITY_EXCESS, CDI_UNDOCUMENTED_COMPLEXITY_EXCESS,
       HTS_IMPLICIT, HTS_EXPLICIT, HTS_CONFIG_DRIVEN, HTS_TOTAL, HTS_OPAQUE_CONFIG,

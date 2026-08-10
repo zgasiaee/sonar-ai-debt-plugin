@@ -20,6 +20,6 @@ The metric engine is separated from the scanner adapter. Its parser depends on t
 - Function representations retain normalized syntax, control behavior, nesting, call families, parameters, identifiers, output names, comments, and docstrings. Cognitive metrics combine these deterministic views instead of requiring a network model during a scan.
 - Literal configuration dictionaries expanded with `**config` are traced to their keys. Dynamic or externally loaded configurations remain explicitly marked opaque rather than being assumed transparent.
 - Source code is never executed and the plugin performs no network calls during analysis.
-- Pairwise metrics are capped at 20,000 deterministic pairs to bound scanner time. The analyzed-pair denominator is retained in the metric value model.
+- Pairwise metrics analyze up to 1,000,000 deterministic round-robin pairs per metric. This covers every pair for approximately 1,414 items and, when capped, distributes comparisons across the complete source set instead of favoring early files. The analyzed-pair denominator and cap status are retained in the metric value model.
 - Composite measures are project-level; smell and reproducibility evidence is also emitted as line-level Python issues.
 - Dashboard scripts are bundled as static plugin resources and use DOM text nodes rather than HTML interpolation for server-provided values.

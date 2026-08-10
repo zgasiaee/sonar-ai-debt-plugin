@@ -2,6 +2,7 @@ package io.github.aidebt.sonar;
 
 import io.github.aidebt.core.AnalysisConfig;
 import io.github.aidebt.core.AnalysisResult;
+import io.github.aidebt.core.CalibrationCollector;
 import io.github.aidebt.core.DebtFinding;
 import io.github.aidebt.core.MetricKey;
 import io.github.aidebt.core.ProjectAnalyzer;
@@ -9,6 +10,7 @@ import io.github.aidebt.core.SourceUnit;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -45,10 +47,14 @@ public final class AiDebtSensor implements Sensor {
       bind(AiDebtMetrics.CII_COUPLED_FILES, "cii.coupled_files"),
       bind(AiDebtMetrics.CII_INTERNAL, "cii.internal_dependencies"),
       bind(AiDebtMetrics.CII_EXTERNAL, "cii.external_dependencies"),
+      bind(AiDebtMetrics.CII_CYCLES, "cii.cycles"),
+      bind(AiDebtMetrics.CII_STABILITY_VIOLATIONS, "cii.stability_violations"),
+      bind(AiDebtMetrics.CII_REMEDIATION_ACTIONS, "cii.remediation_actions"),
       bind(AiDebtMetrics.CDI_MEAN_COMPLEXITY, "cdi.mean_complexity"),
       bind(AiDebtMetrics.CDI_COMMENT_DENSITY, "cdi.comment_density"),
       bind(AiDebtMetrics.CDI_COMMENT_LINES, "cdi.comment_lines"),
       bind(AiDebtMetrics.CDI_SOURCE_LINES, "cdi.source_lines"),
+      bind(AiDebtMetrics.CDI_BLOCKS, "cdi.blocks"),
       bind(AiDebtMetrics.CDI_MEAN_NESTING, "cdi.mean_nesting"),
       bind(AiDebtMetrics.CDI_DOCUMENTED_BLOCKS, "cdi.documented_blocks"),
       bind(AiDebtMetrics.CDI_DOCUMENTATION_COVERAGE, "cdi.documentation_coverage"),
@@ -123,9 +129,10 @@ public final class AiDebtSensor implements Sensor {
     } catch (IllegalArgumentException error) {
       throw new IllegalStateException("Invalid AI Debt configuration: " + error.getMessage(), error);
     }
-    ProjectAnalyzer analyzer = new ProjectAnalyzer(config);
-    AnalysisResult result;
     Path baseDirectory = context.fileSystem().baseDir().toPath().toAbsolutePath().normalize();
+    CalibrationCollector calibration = calibrationCollector(context);
+    ProjectAnalyzer analyzer = new ProjectAnalyzer(config, calibration);
+    AnalysisResult result;
     String configuredReport = context.config().get(AiDebtProperties.SPECDETECT_REPORT)
         .orElse("specDetect4ai_results.json");
     Path report = Path.of(configuredReport);
@@ -143,6 +150,7 @@ public final class AiDebtSensor implements Sensor {
       LOG.warn("AI Debt AISD is N/A because the SpecDetect4AI report was not found at {}", report);
       result = analyzer.analyzeWithoutSpecDetect(sources);
     }
+    exportCalibration(context, baseDirectory, calibration);
     if (result.metric(MetricKey.AISD).applicable()) {
       save(context, AiDebtMetrics.AISD, result.metric(MetricKey.AISD).raw());
       save(context, AiDebtMetrics.AISD_SCORE, result.metric(MetricKey.AISD).normalized());
@@ -169,8 +177,35 @@ public final class AiDebtSensor implements Sensor {
     saveData(context, AiDebtMetrics.RLR_EVIDENCE, result.artifact("rlr.evidence"));
     saveData(context, AiDebtMetrics.SII_EVIDENCE, result.artifact("sii.evidence"));
     saveData(context, AiDebtMetrics.EGR_EVIDENCE, result.artifact("egr.evidence"));
+    saveData(context, AiDebtMetrics.EFFORT_MODEL, result.artifact("effort.model"));
     publishIssues(context, result, inputByPath);
     LOG.info("AI Debt analyzed {} files / {} logical lines; ADSI={}", result.files(), result.lines(), round(result.adsi()));
+  }
+
+  private static CalibrationCollector calibrationCollector(SensorContext context) {
+    String exportPath = context.config().get(AiDebtProperties.CALIBRATION_EXPORT_PATH).orElse("").strip();
+    if (exportPath.isEmpty()) return CalibrationCollector.disabled();
+    String groupId = context.config().get(AiDebtProperties.CALIBRATION_GROUP_ID)
+        .filter(value -> !value.isBlank())
+        .orElse(context.project().key());
+    return CalibrationCollector.enabled(groupId);
+  }
+
+  private static void exportCalibration(SensorContext context, Path baseDirectory,
+                                        CalibrationCollector calibration) {
+    if (!calibration.enabled()) return;
+    Path output = Path.of(context.config().get(AiDebtProperties.CALIBRATION_EXPORT_PATH).orElseThrow());
+    if (!output.isAbsolute()) output = baseDirectory.resolve(output);
+    output = output.normalize();
+    try {
+      Path parent = output.getParent();
+      if (parent != null) Files.createDirectories(parent);
+      Files.writeString(output, calibration.jsonLines(), StandardCharsets.UTF_8);
+      LOG.info("AI Debt exported {} pre-threshold calibration candidates to {}", calibration.size(), output);
+    } catch (IOException error) {
+      throw new IllegalStateException("Cannot write AI Debt calibration export " + output + ": "
+          + error.getMessage(), error);
+    }
   }
 
   private static AnalysisConfig configuration(SensorContext context) {
@@ -184,10 +219,39 @@ public final class AiDebtSensor implements Sensor {
     for (int i = 0; i < 4; i++) values.put(keys[i + 4], cognitive[i]);
     double csdThreshold = context.config().getDouble(AiDebtProperties.CSD_SIMILARITY_THRESHOLD)
         .orElse(defaults.contextSimilarityThreshold());
+    double[] csdComponents = weights(context.config().get(AiDebtProperties.CSD_COMPONENT_WEIGHTS)
+        .orElse("0.333333333333,0.333333333333,0.333333333334"), 3);
+    double rlrSyntaxThreshold = context.config().getDouble(AiDebtProperties.RLR_SYNTAX_THRESHOLD)
+        .orElse(defaults.syntacticRedundancyThreshold());
+    double rlrBehaviorThreshold = context.config().getDouble(AiDebtProperties.RLR_BEHAVIOR_THRESHOLD)
+        .orElse(defaults.semanticRedundancyThreshold());
+    double[] rlrBehaviorComponents = weights(context.config()
+        .get(AiDebtProperties.RLR_BEHAVIOR_COMPONENT_WEIGHTS)
+        .orElse("0.333333333333,0.333333333333,0.333333333334"), 3);
+    double siiConceptThreshold = context.config().getDouble(AiDebtProperties.SII_CONCEPT_THRESHOLD)
+        .orElse(defaults.semanticConsistencyThreshold());
+    double siiContextThreshold = context.config().getDouble(AiDebtProperties.SII_CONTEXT_THRESHOLD)
+        .orElse(defaults.semanticContextThreshold());
+    double siiNameThreshold = context.config().getDouble(AiDebtProperties.SII_NAME_THRESHOLD)
+        .orElse(defaults.lexicalConsistencyThreshold());
+    int egrComplexityThreshold = context.config().getInt(AiDebtProperties.EGR_COMPLEXITY_THRESHOLD)
+        .orElse(defaults.complexBlockThreshold());
+    int egrNestingThreshold = context.config().getInt(AiDebtProperties.EGR_NESTING_THRESHOLD)
+        .orElse(defaults.complexNestingThreshold());
+    int egrMixedFlowComplexityThreshold = context.config()
+        .getInt(AiDebtProperties.EGR_MIXED_FLOW_COMPLEXITY_THRESHOLD)
+        .orElse(defaults.mixedFlowComplexityThreshold());
+    int egrMixedFlowKindThreshold = context.config().getInt(AiDebtProperties.EGR_MIXED_FLOW_KIND_THRESHOLD)
+        .orElse(defaults.mixedFlowKindThreshold());
+    int pairBudget = context.config().getInt(AiDebtProperties.PAIR_BUDGET)
+        .orElse(defaults.pairBudget());
     return new AnalysisConfig(values, index[0], index[1], defaults.aisdScale(),
-        csdThreshold, defaults.syntacticRedundancyThreshold(),
-        defaults.semanticRedundancyThreshold(), defaults.semanticConsistencyThreshold(),
-        defaults.lexicalConsistencyThreshold(), defaults.complexBlockThreshold());
+        csdThreshold, csdComponents[0], csdComponents[1], csdComponents[2],
+        rlrSyntaxThreshold, rlrBehaviorThreshold,
+        rlrBehaviorComponents[0], rlrBehaviorComponents[1], rlrBehaviorComponents[2],
+        siiConceptThreshold,
+        siiContextThreshold, siiNameThreshold, egrComplexityThreshold, egrNestingThreshold,
+        egrMixedFlowComplexityThreshold, egrMixedFlowKindThreshold, pairBudget);
   }
 
   private static double[] weights(String csv, int expected) {

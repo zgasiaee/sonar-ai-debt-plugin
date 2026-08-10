@@ -9,6 +9,13 @@
 !/SpecDetect4AI-B903/
 !/SpecDetect4AI-B903/**
 
+# Local thesis analysis and publication-only assets are intentionally not part
+# of the reusable SonarQube plugin repository.
+/unified_python_analysis/
+/sonar-ai-debt-plugin/docs/figures/
+/sonar-ai-debt-plugin/docs/ANNOTATION_GUIDE_FA.md
+/sonar-ai-debt-plugin/docs/RELATED_WORK_COMPARISON.md
+
 # Generated and machine-local content
 **/target/
 **/.venv/

@@ -11,6 +11,58 @@ class ProjectAnalyzerTest {
   private final ProjectAnalyzer analyzer = new ProjectAnalyzer(AnalysisConfig.defaults());
 
   @Test
+  void aisdUsesFixedSonarSourceAlignedEffortCategoriesAndDeduplicatesOccurrences() {
+    List<DebtFinding> findings = List.of(
+        new DebtFinding("sample.py", 1, "specdetect-r2", "seed"),
+        new DebtFinding("sample.py", 1, "specdetect-r2", "duplicate seed"),
+        new DebtFinding("sample.py", 2, "specdetect-r5", "implicit hyperparameter"),
+        new DebtFinding("sample.py", 3, "specdetect-r11", "data leakage"));
+
+    AnalysisResult result = analyzer.analyzeWithSpecDetect(
+        List.of(python("sample.py", "value = 1\nother = 2\nthird = 3\n")), findings);
+
+    String effort = result.artifact("effort.model");
+    assertTrue(effort.contains("\"policySource\":\"sonarsource-standard-effort-v1\""), effort);
+    assertTrue(effort.contains("\"AISD\":{\"estimable\":true,\"actions\":3,\"tierCounts\":{\"easy\":1,\"moderate\":1,\"major\":1},\"minutes\":90"), effort);
+  }
+
+  @Test
+  void calibrationExportContainsPreThresholdPositiveAndNegativeCandidates() {
+    CalibrationCollector collector = CalibrationCollector.enabled("project-family-a");
+    ProjectAnalyzer calibrationAnalyzer = new ProjectAnalyzer(AnalysisConfig.defaults(), collector);
+
+    calibrationAnalyzer.analyze(List.of(python("calibration.py", """
+        def total_positive(items):
+            total = 0
+            for item in items:
+                if item > 0:
+                    total += item
+            return total
+
+        def add_positive(values):
+            result = 0
+            for value in values:
+                if value > 0:
+                    result += value
+            return result
+
+        def trivial(value):
+            return value
+        """)));
+
+    String export = collector.jsonLines();
+    assertTrue(export.contains("\"record_type\":\"metadata\""));
+    assertTrue(export.contains("\"group_id\":\"project-family-a\""));
+    assertTrue(export.contains("\"metric\":\"CSD\""));
+    assertTrue(export.contains("\"metric\":\"RLR\""));
+    assertTrue(export.contains("\"metric\":\"SII\""));
+    assertTrue(export.contains("\"metric\":\"EGR\""));
+    assertTrue(export.contains("\"current_prediction\":true"));
+    assertTrue(export.contains("\"current_prediction\":false"));
+    assertTrue(export.contains("\"source\":\"def trivial(value):\\n    return value\""));
+  }
+
+  @Test
   void keepsEveryPublishedScoreBounded() {
     AnalysisResult result = analyzer.analyze(List.of(python("sample.py", """
         import requests
@@ -230,6 +282,25 @@ class ProjectAnalyzerTest {
   }
 
   @Test
+  void ciiProducesActionsOnlyForActionableInternalDependencyProblems() {
+    AnalysisResult result = analyzer.analyze(List.of(
+        python("a.py", "from b import value\n"),
+        python("b.py", "from a import value\n"),
+        python("stable.py", "from consumer import VALUE\n"),
+        python("consumer.py", "import requests\nVALUE = 2\n"),
+        python("stable_client.py", "from stable import VALUE\n"),
+        python("other_client.py", "from stable import VALUE\n")));
+
+    assertEquals(1.0, result.diagnostic("cii.cycles"));
+    assertTrue(result.diagnostic("cii.stability_violations") >= 1.0);
+    assertTrue(result.artifact("cii.evidence").contains("\"cycles\":[{"));
+    assertTrue(result.artifact("cii.evidence").contains("\"stabilityViolations\":[{"));
+    assertTrue(result.findings().stream().anyMatch(finding -> finding.rule().equals("coupling-cycle")));
+    assertTrue(result.findings().stream().anyMatch(finding -> finding.rule().equals("unstable-dependency-direction")));
+    assertTrue(result.artifact("effort.model").contains("\"CII\":{\"estimable\":true"));
+  }
+
+  @Test
   void publishesAuditableSmellAndFormulaDiagnostics() {
     AnalysisResult result = analyzer.analyze(List.of(python("diagnostic.py", """
         def risky(values=[]):
@@ -363,6 +434,72 @@ class ProjectAnalyzerTest {
     assertEquals(2.0, result.diagnostic("egr.complex"));
     assertEquals(1.0, result.diagnostic("egr.unexplained"));
     assertTrue(result.artifact("cdi.evidence").contains("\"blocks\":["));
+  }
+
+  @Test
+  void reportsWhenPairwiseAnalysisReachesItsConfiguredBudget() {
+    AnalysisConfig defaults = AnalysisConfig.defaults();
+    AnalysisConfig constrained = new AnalysisConfig(
+        defaults.weights(), defaults.tdsiWeight(), defaults.cogdiWeight(), defaults.aisdScale(),
+        defaults.contextSimilarityThreshold(), defaults.csdNamingWeight(), defaults.csdPatternWeight(),
+        defaults.csdStructureWeight(), defaults.syntacticRedundancyThreshold(),
+        defaults.semanticRedundancyThreshold(), defaults.rlrBehaviorWeight(), defaults.rlrCallsWeight(),
+        defaults.rlrOutputsWeight(), defaults.semanticConsistencyThreshold(),
+        defaults.semanticContextThreshold(), defaults.lexicalConsistencyThreshold(),
+        defaults.complexBlockThreshold(), defaults.complexNestingThreshold(),
+        defaults.mixedFlowComplexityThreshold(), defaults.mixedFlowKindThreshold(), 1);
+    ProjectAnalyzer constrainedAnalyzer = new ProjectAnalyzer(constrained);
+
+    AnalysisResult result = constrainedAnalyzer.analyze(List.of(python("pairs.py", """
+        def first(value):
+            return value
+
+        def second(value):
+            return value + 1
+
+        def third(value):
+            return value + 2
+        """)));
+
+    assertTrue(result.artifact("rlr.evidence").contains("\"analyzedPairs\":1"));
+    assertTrue(result.artifact("rlr.evidence").contains("\"candidatePairs\":3"));
+    assertTrue(result.artifact("rlr.evidence").contains("\"budgetReached\":true"));
+  }
+
+  @Test
+  void cappedPairwiseTraversalRepresentsTheWholeSourceSetInItsFirstRound() {
+    AnalysisConfig defaults = AnalysisConfig.defaults();
+    AnalysisConfig constrained = new AnalysisConfig(
+        defaults.weights(), defaults.tdsiWeight(), defaults.cogdiWeight(), defaults.aisdScale(),
+        defaults.contextSimilarityThreshold(), defaults.csdNamingWeight(), defaults.csdPatternWeight(),
+        defaults.csdStructureWeight(), defaults.syntacticRedundancyThreshold(),
+        defaults.semanticRedundancyThreshold(), defaults.rlrBehaviorWeight(), defaults.rlrCallsWeight(),
+        defaults.rlrOutputsWeight(), defaults.semanticConsistencyThreshold(),
+        defaults.semanticContextThreshold(), defaults.lexicalConsistencyThreshold(),
+        defaults.complexBlockThreshold(), defaults.complexNestingThreshold(),
+        defaults.mixedFlowComplexityThreshold(), defaults.mixedFlowKindThreshold(), 2);
+
+    AnalysisResult result = new ProjectAnalyzer(constrained).analyze(List.of(python("round_robin.py", """
+        def first(values):
+            return sum(values)
+
+        def second(values):
+            return sum(values)
+
+        def third(values):
+            return sum(values)
+
+        def fourth(values):
+            return sum(values)
+        """)));
+
+    String evidence = result.artifact("rlr.evidence");
+    assertTrue(evidence.contains("first"), evidence);
+    assertTrue(evidence.contains("second"), evidence);
+    assertTrue(evidence.contains("third"), evidence);
+    assertTrue(evidence.contains("fourth"), evidence);
+    assertTrue(evidence.contains("\"analyzedPairs\":2"), evidence);
+    assertTrue(evidence.contains("\"budgetReached\":true"), evidence);
   }
 
   @Test

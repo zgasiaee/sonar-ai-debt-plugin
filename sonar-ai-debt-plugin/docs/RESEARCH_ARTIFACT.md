@@ -96,11 +96,13 @@ in [`VALIDATION.md`](VALIDATION.md).
 | `src/main/resources/static/` | Project dashboard JavaScript and CSS |
 | `src/test/` | Unit, golden-value, aggregation, rule, and report-parser tests |
 | `research/calibrate_weights.py` | Optional exploratory CRITIC weighting workflow |
+| `research/thresholds/` | Provenance-blind candidate sampling and grouped threshold calibration |
 | `docs/METRICS.md` | Metric operational definitions and applicability rules |
 | `docs/ARCHITECTURE.md` | Component and data-flow architecture |
 | `docs/SPECDETECT4AI.md` | External AISD detector integration contract |
 | `docs/AISD_EVIDENCE.md` | AISD rule provenance and evidence interpretation |
 | `docs/VALIDATION.md` | Statistical and construct-validation protocol |
+| `docs/THRESHOLD_CALIBRATION.md` | Executable threshold calibration and freezing protocol |
 | `LICENSE` | Apache License 2.0 |
 
 Generated `target/` content is not source material and should not be committed. The JAR
@@ -491,6 +493,18 @@ sonar.aidebt.tdsi.weights=0.25,0.25,0.25,0.25
 sonar.aidebt.cogdi.weights=0.25,0.25,0.25,0.25
 sonar.aidebt.index.weights=0.5,0.5
 sonar.aidebt.csd.similarityThreshold=0.45
+sonar.aidebt.csd.componentWeights=0.333333333333,0.333333333333,0.333333333334
+sonar.aidebt.rlr.syntaxSimilarityThreshold=0.85
+sonar.aidebt.rlr.behaviorSimilarityThreshold=0.90
+sonar.aidebt.rlr.behaviorComponentWeights=0.333333333333,0.333333333333,0.333333333334
+sonar.aidebt.sii.conceptSimilarityThreshold=0.75
+sonar.aidebt.sii.contextSimilarityThreshold=0.75
+sonar.aidebt.sii.nameSimilarityCeiling=0.40
+sonar.aidebt.egr.complexityThreshold=5
+sonar.aidebt.egr.nestingThreshold=3
+sonar.aidebt.egr.mixedFlowComplexityThreshold=4
+sonar.aidebt.egr.mixedFlowKindThreshold=2
+sonar.aidebt.pairBudget=1000000
 ```
 
 Exclude generated, vendored, test, or virtual-environment code according to a
@@ -607,7 +621,9 @@ metadata.
 - Never place credentials in analyzed source or the artifact. If a secret detector finds
   a real credential, revoke it before archiving any output.
 - SonarQube's embedded database is for evaluation only.
-- The dashboard's remediation-time values are estimates, not measured developer effort.
+- The dashboard reports standardized remediation effort, not observed developer elapsed time.
+  It sums deduplicated repair actions using the fixed SonarSource-aligned easy, medium, and
+  major costs. Archive the `aidebt_effort_model` measure with every reported run.
 - A finding should be reviewed in context before remediation or publication.
 - The tool must not be used to infer developer identity, competence, or AI authorship from
   code signals alone.
