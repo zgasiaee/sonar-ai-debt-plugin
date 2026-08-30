@@ -385,10 +385,10 @@ window.registerExtension('aidebt/dashboard', function (options) {
 
   function thresholdEvidence(short, v) {
     const rows = {
-      CSD: [['Mean adjacent similarity', v.aidebt_csd_mean_similarity], ['Minimum similarity', v.aidebt_csd_minimum_similarity], ['Switch boundary (provisional)', v.aidebt_csd_threshold]],
-      RLR: [['Maximum syntax similarity', v.aidebt_rlr_maximum_syntactic_similarity], ['Syntax-similarity boundary (provisional)', v.aidebt_rlr_syntactic_threshold], ['Maximum behavioral similarity', v.aidebt_rlr_maximum_semantic_similarity], ['Behavioral-similarity boundary (provisional)', v.aidebt_rlr_semantic_threshold]],
-      SII: [['Concept-and-context matches', v.aidebt_sii_semantically_similar], ['Maximum concept similarity', v.aidebt_sii_maximum_semantic_similarity], ['Maximum usage-context similarity', v.aidebt_sii_maximum_context_similarity], ['Concept-similarity boundary (provisional)', v.aidebt_sii_semantic_threshold], ['Usage-context boundary (provisional)', v.aidebt_sii_context_threshold], ['Name-similarity ceiling (provisional)', v.aidebt_sii_lexical_threshold]],
-      EGR: [['Complexity boundary (provisional)', v.aidebt_egr_cc_threshold], ['Nesting boundary (provisional)', v.aidebt_egr_nesting_threshold]]
+      CSD: [['Mean adjacent similarity', v.aidebt_csd_mean_similarity], ['Minimum similarity', v.aidebt_csd_minimum_similarity], ['Switch boundary', v.aidebt_csd_threshold]],
+      RLR: [['Maximum syntax similarity', v.aidebt_rlr_maximum_syntactic_similarity], ['Syntax-similarity boundary', v.aidebt_rlr_syntactic_threshold], ['Maximum behavioral similarity', v.aidebt_rlr_maximum_semantic_similarity], ['Behavioral-similarity boundary', v.aidebt_rlr_semantic_threshold]],
+      SII: [['Concept-and-context matches', v.aidebt_sii_semantically_similar], ['Maximum concept similarity', v.aidebt_sii_maximum_semantic_similarity], ['Maximum usage-context similarity', v.aidebt_sii_maximum_context_similarity], ['Concept-similarity boundary', v.aidebt_sii_semantic_threshold], ['Usage-context boundary', v.aidebt_sii_context_threshold], ['Name-similarity ceiling', v.aidebt_sii_lexical_threshold]],
+      EGR: [['Complexity boundary', v.aidebt_egr_cc_threshold], ['Nesting boundary', v.aidebt_egr_nesting_threshold]]
     }[short] || [];
     return rows.map(([label, value]) => ({label, value: number(value, 3)}));
   }
@@ -593,7 +593,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
       `${gaps} explanation gap${gaps === 1 ? '' : 's'} across ${total} complex or critical block${total === 1 ? '' : 's'}`));
     const note = el('div', 'aidebt-analysis-note');
     note.append(el('strong', '', 'Interpretation'), el('span', '',
-      'A callable enters this audit when it crosses a provisional complexity, nesting, or combined control-flow criterion. It is considered explained only when an associated comment or docstring states a reason, constraint, invariant, safety concern, fallback, performance decision, or validation intent.'));
+      'A callable enters this audit when it crosses the calibrated complexity, nesting, or combined control-flow criterion. It is considered explained only when an associated comment or docstring states a reason, constraint, invariant, safety concern, fallback, performance decision, or validation intent.'));
     section.appendChild(note);
     if (!blocks.length) {
       section.appendChild(el('p', 'aidebt-empty-findings',

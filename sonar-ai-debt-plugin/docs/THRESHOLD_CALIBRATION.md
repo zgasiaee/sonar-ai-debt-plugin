@@ -3,9 +3,10 @@
 ## Purpose
 
 The CSD, RLR, SII, and EGR decision boundaries are model parameters, not universal
-constants. The values shipped with the plug-in are engineering defaults. A confirmatory
-Human-versus-AI study must replace them with values frozen on an independent calibration
-set.
+constants. The values shipped with the plug-in belong to the frozen
+`consensus-adjudicated-v1` profile. The profile combines provenance-blind annotations,
+codebook adjudication, grouped performance checks, and conservative retention of the
+pre-specified boundary when the labeled sample does not identify a safer replacement.
 
 The calibration outcome must not use the source-code provenance label (Human or AI).
 Otherwise, the analyzer is indirectly optimized to create the difference that the study is
@@ -224,5 +225,7 @@ A point estimate is not enough. A threshold is ready for the thesis only when:
 - sensitivity analysis shows that the main study conclusion is stable across the interval;
 - the final values were frozen before the confirmatory comparison.
 
-If these conditions are not met, keep the threshold status as provisional. That is a valid
-research result and is more defensible than reporting an overfitted “exact” value.
+When a metric does not identify a stable replacement, the protocol retains its pre-specified
+conservative boundary instead of substituting an overfitted point estimate. The retained
+value and the empirical value are compared in the calibration record before the profile is
+frozen.

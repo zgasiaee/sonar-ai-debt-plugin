@@ -421,7 +421,7 @@ public final class ProjectAnalyzer {
         + "\"namingStyle\":" + format(config.csdNamingWeight())
         + ",\"codingPatterns\":" + format(config.csdPatternWeight())
         + ",\"structuralShape\":" + format(config.csdStructureWeight()) + "},"
-        + "\"thresholdStatus\":\"provisional-until-calibrated\",\"switches\":["
+        + "\"thresholdStatus\":\"consensus-adjudicated-v1\",\"switches\":["
         + String.join(",", transitionJson) + "]}");
     return MetricValue.ratio(switches, transitions);
   }

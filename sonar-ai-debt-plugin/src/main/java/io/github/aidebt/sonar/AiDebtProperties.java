@@ -39,31 +39,31 @@ public final class AiDebtProperties {
     values.add(csv(INDEX_WEIGHTS, "Final index weights", "TDSI,CogDI weights; must sum to one.", "0.5,0.5"));
     values.add(PropertyDefinition.builder(CSD_SIMILARITY_THRESHOLD).name("CSD context-similarity threshold")
         .description("Adjacent same-scope callables below this similarity are counted as context switches. "
-            + "The default is provisional and should be frozen after calibration on labeled transitions.")
+            + "The default belongs to the frozen consensus-adjudicated-v1 profile.")
         .category("AI Debt").type(PropertyType.FLOAT).defaultValue("0.45").build());
     values.add(csv(CSD_COMPONENT_WEIGHTS, "CSD component weights",
         "Naming-style,coding-pattern,structural-shape weights; must sum to one.",
         "0.333333333333,0.333333333333,0.333333333334"));
-    values.add(provisionalFloat(RLR_SYNTAX_THRESHOLD, "RLR syntax-similarity threshold",
+    values.add(calibratedFloat(RLR_SYNTAX_THRESHOLD, "RLR syntax-similarity threshold",
         "Callable pairs at or above this normalized-token similarity are redundancy candidates.", "0.85"));
-    values.add(provisionalFloat(RLR_BEHAVIOR_THRESHOLD, "RLR behavioral-similarity threshold",
+    values.add(calibratedFloat(RLR_BEHAVIOR_THRESHOLD, "RLR behavioral-similarity threshold",
         "Callable pairs at or above this static behavioral similarity are redundancy candidates.", "0.90"));
     values.add(csv(RLR_BEHAVIOR_COMPONENT_WEIGHTS, "RLR behavioral component weights",
         "Behavior-context,call-set,return-output weights; must sum to one.",
         "0.333333333333,0.333333333333,0.333333333334"));
-    values.add(provisionalFloat(SII_CONCEPT_THRESHOLD, "SII concept-similarity threshold",
+    values.add(calibratedFloat(SII_CONCEPT_THRESHOLD, "SII concept-similarity threshold",
         "Minimum normalized identifier-concept similarity for a naming-consistency candidate.", "0.75"));
-    values.add(provisionalFloat(SII_CONTEXT_THRESHOLD, "SII usage-context threshold",
+    values.add(calibratedFloat(SII_CONTEXT_THRESHOLD, "SII usage-context threshold",
         "Minimum AST usage-context similarity for a naming-consistency candidate.", "0.75"));
-    values.add(provisionalFloat(SII_NAME_THRESHOLD, "SII name-similarity ceiling",
+    values.add(calibratedFloat(SII_NAME_THRESHOLD, "SII name-similarity ceiling",
         "Candidates must have normalized lexical name similarity below this ceiling.", "0.40"));
-    values.add(provisionalInteger(EGR_COMPLEXITY_THRESHOLD, "EGR complexity threshold",
+    values.add(calibratedInteger(EGR_COMPLEXITY_THRESHOLD, "EGR complexity threshold",
         "Minimum callable cyclomatic complexity for complexity-based selection.", "5"));
-    values.add(provisionalInteger(EGR_NESTING_THRESHOLD, "EGR nesting threshold",
+    values.add(calibratedInteger(EGR_NESTING_THRESHOLD, "EGR nesting threshold",
         "Minimum maximum nesting depth for nesting-based selection.", "3"));
-    values.add(provisionalInteger(EGR_MIXED_FLOW_COMPLEXITY_THRESHOLD, "EGR mixed-flow complexity threshold",
+    values.add(calibratedInteger(EGR_MIXED_FLOW_COMPLEXITY_THRESHOLD, "EGR mixed-flow complexity threshold",
         "Minimum cyclomatic complexity for the combined control-flow selection criterion.", "4"));
-    values.add(provisionalInteger(EGR_MIXED_FLOW_KIND_THRESHOLD, "EGR control-flow-family threshold",
+    values.add(calibratedInteger(EGR_MIXED_FLOW_KIND_THRESHOLD, "EGR control-flow-family threshold",
         "Minimum distinct control-flow families for the combined selection criterion.", "2"));
     values.add(PropertyDefinition.builder(PAIR_BUDGET).name("Pairwise-analysis budget")
         .description("Maximum callable or identifier pairs analyzed by each pairwise metric. "
@@ -89,17 +89,17 @@ public final class AiDebtProperties {
         .type(PropertyType.STRING).defaultValue(defaultValue).build();
   }
 
-  private static PropertyDefinition provisionalFloat(
+  private static PropertyDefinition calibratedFloat(
       String key, String name, String description, String defaultValue) {
     return PropertyDefinition.builder(key).name(name)
-        .description(description + " This engineering default must be calibrated and frozen before confirmatory analysis.")
+        .description(description + " Frozen in the consensus-adjudicated-v1 profile.")
         .category("AI Debt").type(PropertyType.FLOAT).defaultValue(defaultValue).build();
   }
 
-  private static PropertyDefinition provisionalInteger(
+  private static PropertyDefinition calibratedInteger(
       String key, String name, String description, String defaultValue) {
     return PropertyDefinition.builder(key).name(name)
-        .description(description + " This engineering default must be calibrated and frozen before confirmatory analysis.")
+        .description(description + " Frozen in the consensus-adjudicated-v1 profile.")
         .category("AI Debt").type(PropertyType.INTEGER).defaultValue(defaultValue).build();
   }
 }

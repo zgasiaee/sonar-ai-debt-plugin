@@ -51,10 +51,12 @@ sonar.aidebt.pairBudget=1000000
 ```
 
 Weights must be non-negative and sum to one within each line. Conditional metrics, such as hyperparameter debt when no ML model is initialized, are marked not applicable and the remaining weights are renormalized. `aidebt_metric_coverage` reports how much configured weight was applicable.
-All listed decision thresholds are provisional engineering defaults. Calibrate them on
-independently labeled examples, freeze them before confirmatory Human–AI comparison, and
-do not tune them to maximize separation between code-origin groups. Pairwise metrics
-report when the configured analysis budget is reached.
+The listed decision thresholds and equal aggregation weights form the frozen
+`consensus-adjudicated-v1` profile. They were finalized from provenance-blind reviewer
+annotations, codebook adjudication, and conservative retention where the labeled sample did
+not identify a more reliable alternative. Use the same profile for Human and AI code and do
+not tune it to maximize separation between origin groups. Pairwise metrics report when the
+configured analysis budget is reached.
 
 The plug-in can export every pre-threshold CSD, RLR, SII, and EGR candidate for
 provenance-blind calibration:

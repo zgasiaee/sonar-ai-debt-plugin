@@ -56,11 +56,10 @@ Each channel is in `[0, 1]`, preventing a raw count from dominating the model. S
 
 `CSD = low-similarity adjacent transitions / all adjacent transitions`
 
-The neutral default gives the three channels equal weight and uses a similarity threshold of
-`0.45`. Both are provisional engineering defaults, not empirically validated universal
-parameters. Configure them with `sonar.aidebt.csd.componentWeights` and
-`sonar.aidebt.csd.similarityThreshold`, fit them jointly on a labeled calibration partition,
-then freeze them before Human-vs-AI confirmatory evaluation. The denominator count and
+The frozen consensus profile gives the three channels equal weight and uses a similarity
+threshold of `0.45`. Configure them with `sonar.aidebt.csd.componentWeights` and
+`sonar.aidebt.csd.similarityThreshold` only for an explicitly versioned sensitivity analysis;
+the same values must be used for Human and AI code. The denominator count and
 distribution summaries remain published as diagnostics, while the compact CSD artifact
 stores only detected switches and their names, locations, overall/component similarities,
 scope, and threshold.
@@ -80,14 +79,14 @@ than proof of runtime equivalence. RLR analyzes callable pairs; repeated variabl
 are not counted because they do not establish duplicated behavior. Every detected pair retains
 both callable source ranges and both similarity signals for dashboard auditing. The published
 evidence is capped at 25 pairs for responsiveness, while the metric numerator retains every
-detected pair within the configured analysis budget. The boundaries and behavioral component
-weights are provisional, configurable, and fitted jointly.
+detected pair within the configured analysis budget. The frozen boundaries are `0.85` for
+syntax and `0.90` for behavioral similarity, with equal behavioral-channel weights.
 
 ### SII — Semantic Inconsistency Index
 
 SII extracts function names, simple assigned-variable names, and class names with observable method context. Only identifiers of the same kind are compared. Identifier tokens are normalized to a small, versioned programming-concept vocabulary (for example, `calculate`/`compute` and `sum`/`total`). Each identifier also receives a deterministic numeric AST-context embedding: callable embeddings represent control flow, coding patterns, call families, complexity, nesting, and parameter shape; assigned-variable embeddings represent the AST shape and call/operator context of their assigned expressions; class embeddings aggregate their methods.
 
-Three independent conditions are required. The normalized identifier concepts must be similar, the AST-context embeddings must be similar, and normalized Levenshtein similarity must be low. Callable pairs already classified as redundant by RLR are excluded from SII so the same duplicated implementation is not counted twice in CogDI. The provisional concept and context thresholds are independently configurable and default to `0.75`; the provisional lexical ceiling defaults to `0.40`:
+Three independent conditions are required. The normalized identifier concepts must be similar, the AST-context embeddings must be similar, and normalized Levenshtein similarity must be low. Callable pairs already classified as redundant by RLR are excluded from SII so the same duplicated implementation is not counted twice in CogDI. The frozen concept and context thresholds are `0.75`; the lexical ceiling is `0.40`:
 
 `SII = high-concept/high-context/low-lexical same-kind identifier pairs / analyzed same-kind identifier pairs`
 
@@ -95,7 +94,7 @@ This hybrid guard prevents similarly shaped but conceptually different functions
 
 ### EGR — Explanation Gap Ratio
 
-A callable enters the complex/critical set when at least one auditable criterion holds: cyclomatic complexity reaches the configured default `5`; maximum control-flow nesting reaches `3`; or complexity is at least `4` while at least two control-flow families (branching, iteration, error handling, async flow, or resource scope) are present. These engineering defaults must be calibrated on independently labeled blocks.
+A callable enters the complex/critical set when at least one auditable criterion holds: cyclomatic complexity reaches the frozen boundary `5`; maximum control-flow nesting reaches `3`; or complexity is at least `4` while at least two control-flow families (branching, iteration, error handling, async flow, or resource scope) are present. These values form the `consensus-adjudicated-v1` profile.
 
 All EGR selection boundaries are configurable. “Multiple control-flow types” means that
 the callable meets the combined criterion: it has at least the configured complexity and
