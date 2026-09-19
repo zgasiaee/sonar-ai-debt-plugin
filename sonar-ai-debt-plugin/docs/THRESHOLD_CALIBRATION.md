@@ -216,7 +216,7 @@ an exploratory analysis and must be reported separately.
 
 ## What counts as a defensible result?
 
-A point estimate is not enough. A threshold is ready for the thesis only when:
+A point estimate is not enough. A threshold is ready for confirmatory reporting only when:
 
 - both classes are represented for that metric;
 - held-out groups are available and performance is acceptable;

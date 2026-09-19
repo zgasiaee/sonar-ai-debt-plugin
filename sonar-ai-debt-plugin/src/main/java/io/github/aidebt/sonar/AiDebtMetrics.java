@@ -7,7 +7,7 @@ import org.sonar.api.measures.Metrics;
 public final class AiDebtMetrics implements Metrics {
   public static final String DOMAIN = "AI Debt";
 
-  public static final Metric<Double> AISD = metric("aidebt_aisd", "AISD (raw)", "AI-specific smell instances per KLOC");
+  public static final Metric<Double> AISD = metric("aidebt_aisd", "AISD (raw)", "AI-associated smell instances per KLOC");
   public static final Metric<Double> AISD_SCORE = metric("aidebt_aisd_score", "AISD debt score", "Normalized AISD in [0, 1]");
   public static final Metric<Double> CII = metric("aidebt_cii", "CII", "Mean coupling instability over coupled files");
   public static final Metric<Double> CDI = metric("aidebt_cdi", "CDI", "Share of decision complexity belonging to undocumented callable blocks");
@@ -15,11 +15,11 @@ public final class AiDebtMetrics implements Metrics {
   public static final Metric<Double> HTS = benefitMetric("aidebt_hts", "Hyperparameter transparency score", "Model initializations with explicit or resolvable configuration divided by all model initializations");
   public static final Metric<Double> CSD = metric("aidebt_csd", "CSD", "Low style–structure similarity transitions divided by same-scope adjacent callable transitions");
   public static final Metric<Double> RLR = metric("aidebt_rlr", "RLR", "Redundant function pairs divided by analyzed function pairs");
-  public static final Metric<Double> SII = metric("aidebt_sii", "SII", "High-behavior-similarity, low-name-similarity pairs divided by identifier pairs");
+  public static final Metric<Double> SII = metric("aidebt_sii", "SII", "High-concept/high-context, low-lexical-similarity pairs divided by comparable identifier pairs");
   public static final Metric<Double> EGR = metric("aidebt_egr", "EGR", "Complex blocks without rationale divided by complex blocks");
   public static final Metric<Double> TDSI = metric("aidebt_tdsi", "TDSI", "Normalized Technical Debt Severity Index");
   public static final Metric<Double> COGDI = metric("aidebt_cogdi", "CogDI", "Normalized Cognitive Debt Index");
-  public static final Metric<Double> ADSI = metric("aidebt_adsi", "ADSI", "Aggregated AI-code Debt Severity Index");
+  public static final Metric<Double> ADSI = metric("aidebt_adsi", "ADSI", "Aggregated Debt Severity Index");
   public static final Metric<Double> COVERAGE = percentage("aidebt_metric_coverage", "Metric applicability", "Share of configured metric weight that was applicable");
   public static final Metric<String> EFFORT_MODEL = data("aidebt_effort_model", "Remediation workload model",
       "Deduplicated action-based standardized remediation effort and policy provenance as JSON");
@@ -27,7 +27,7 @@ public final class AiDebtMetrics implements Metrics {
   // Analysis scope diagnostics
   public static final Metric<Double> FILES = diagnostic("aidebt_files", "Analyzed files", "Supported main-source files analyzed");
   public static final Metric<Double> LOGICAL_LINES = diagnostic("aidebt_logical_lines", "Logical lines", "Nonblank logical code lines analyzed");
-  public static final Metric<Double> BLOCKS = diagnostic("aidebt_blocks", "Analyzed blocks", "Functions or module blocks analyzed");
+  public static final Metric<Double> BLOCKS = diagnostic("aidebt_blocks", "Analyzed blocks", "Callable blocks analyzed");
 
   // Metric numerators, denominators, and intermediate values
   public static final Metric<Double> AISD_SMELLS = diagnostic("aidebt_aisd_smells", "AISD smell instances", "Unique AI-associated smell instances");
@@ -51,7 +51,7 @@ public final class AiDebtMetrics implements Metrics {
   public static final Metric<Double> CII_REMEDIATION_ACTIONS = diagnostic("aidebt_cii_remediation_actions", "CII remediation actions", "Deduplicated dependency-cycle and stability-direction repair actions");
   public static final Metric<String> CII_EVIDENCE = data("aidebt_cii_evidence", "CII dependency evidence", "Per-file coupling and source-located import evidence as JSON");
   public static final Metric<Double> CDI_MEAN_COMPLEXITY = diagnostic("aidebt_cdi_mean_complexity", "CDI mean complexity", "Mean cyclomatic complexity of analyzed blocks");
-  public static final Metric<Double> CDI_COMMENT_DENSITY = diagnostic("aidebt_cdi_comment_density", "CDI comment density", "Comment lines divided by source lines");
+  public static final Metric<Double> CDI_COMMENT_DENSITY = diagnostic("aidebt_cdi_comment_density", "CDI comment density", "Comment lines divided by code-plus-comment lines");
   public static final Metric<Double> CDI_COMMENT_LINES = diagnostic("aidebt_cdi_comment_lines", "CDI comment lines", "Comment-line numerator");
   public static final Metric<Double> CDI_SOURCE_LINES = diagnostic("aidebt_cdi_source_lines", "CDI source lines", "Code plus comment-line denominator");
   public static final Metric<Double> CDI_BLOCKS = diagnostic("aidebt_cdi_blocks", "CDI callable blocks", "Callable blocks analyzed for complexity and documentation");
@@ -70,7 +70,7 @@ public final class AiDebtMetrics implements Metrics {
   public static final Metric<Double> HTS_UNPINNED_REVISION = diagnostic("aidebt_hts_unpinned_revision", "Unpinned model revisions", "Pretrained model loads without a revision parameter");
   public static final Metric<String> HTS_EVIDENCE = data("aidebt_hts_evidence", "HTS initialization evidence", "Every detected ML initialization with source location and classification as JSON");
   public static final Metric<String> CSD_EVIDENCE = data("aidebt_csd_evidence", "CSD switch evidence", "Detected style–structure switches with both source ranges and similarity components as compact JSON");
-  public static final Metric<String> RLR_EVIDENCE = data("aidebt_rlr_evidence", "RLR pair evidence", "Detected redundant callable pairs with both source ranges and syntactic and semantic-proxy similarities as JSON");
+  public static final Metric<String> RLR_EVIDENCE = data("aidebt_rlr_evidence", "RLR pair evidence", "Detected redundant callable pairs with both source ranges and syntax and behavioral-proxy similarities as JSON");
   public static final Metric<Double> CSD_SWITCHES = diagnostic("aidebt_csd_switches", "Context switches", "Low style–structure similarity transitions");
   public static final Metric<Double> CSD_TRANSITIONS = diagnostic("aidebt_csd_transitions", "Block transitions", "Total same-scope adjacent callable transitions");
   public static final Metric<Double> CSD_MEAN_SIMILARITY = diagnostic("aidebt_csd_mean_similarity", "Mean context similarity", "Mean style–structure similarity of adjacent callables");
@@ -79,20 +79,20 @@ public final class AiDebtMetrics implements Metrics {
   public static final Metric<Double> RLR_REDUNDANT = diagnostic("aidebt_rlr_redundant", "Redundant pairs", "Redundant function pairs");
   public static final Metric<Double> RLR_PAIRS = diagnostic("aidebt_rlr_pairs", "Function pairs", "Function pairs analyzed for redundancy");
   public static final Metric<Double> RLR_MAX_SYNTACTIC = diagnostic("aidebt_rlr_maximum_syntactic_similarity", "Maximum syntax similarity", "Highest normalized shingle similarity among analyzed function pairs");
-  public static final Metric<Double> RLR_MAX_SEMANTIC = diagnostic("aidebt_rlr_maximum_semantic_similarity", "Maximum semantic similarity", "Highest structural/call/output similarity among analyzed function pairs");
+  public static final Metric<Double> RLR_MAX_SEMANTIC = diagnostic("aidebt_rlr_maximum_semantic_similarity", "Maximum behavioral similarity", "Highest structural/call/output similarity among analyzed function pairs");
   public static final Metric<Double> RLR_SYNTACTIC_THRESHOLD = diagnostic("aidebt_rlr_syntactic_threshold", "RLR syntax threshold", "Configured syntactic redundancy threshold");
-  public static final Metric<Double> RLR_SEMANTIC_THRESHOLD = diagnostic("aidebt_rlr_semantic_threshold", "RLR semantic threshold", "Configured semantic redundancy threshold");
-  public static final Metric<Double> SII_INCONSISTENT = diagnostic("aidebt_sii_inconsistent", "Inconsistent pairs", "High-behavior/low-name-similarity pairs");
+  public static final Metric<Double> RLR_SEMANTIC_THRESHOLD = diagnostic("aidebt_rlr_semantic_threshold", "RLR behavioral threshold", "Configured behavioral-proxy redundancy threshold");
+  public static final Metric<Double> SII_INCONSISTENT = diagnostic("aidebt_sii_inconsistent", "Inconsistent pairs", "High-concept/high-context, low-lexical-similarity pairs");
   public static final Metric<Double> SII_PAIRS = diagnostic("aidebt_sii_pairs", "Identifier pairs", "Same-kind non-RLR identifier pairs analyzed");
   public static final Metric<Double> SII_IDENTIFIERS = diagnostic("aidebt_sii_identifiers", "Contextual identifiers", "Functions, assigned variables, and classes with an AST-context embedding");
-  public static final Metric<Double> SII_SEMANTICALLY_SIMILAR = diagnostic("aidebt_sii_semantically_similar", "Semantically similar pairs", "Pairs crossing the SII semantic threshold");
-  public static final Metric<Double> SII_MAX_SEMANTIC = diagnostic("aidebt_sii_maximum_semantic_similarity", "Maximum SII semantic similarity", "Highest SII semantic similarity among analyzed pairs");
+  public static final Metric<Double> SII_SEMANTICALLY_SIMILAR = diagnostic("aidebt_sii_semantically_similar", "Concept-and-context matches", "Pairs crossing both SII concept and context thresholds");
+  public static final Metric<Double> SII_MAX_SEMANTIC = diagnostic("aidebt_sii_maximum_semantic_similarity", "Maximum SII concept similarity", "Highest SII concept similarity among analyzed pairs");
   public static final Metric<Double> SII_MAX_CONTEXT = diagnostic("aidebt_sii_maximum_context_similarity", "Maximum SII context similarity", "Highest AST-context similarity among analyzed same-kind identifier pairs");
-  public static final Metric<Double> SII_MIN_LEXICAL = diagnostic("aidebt_sii_minimum_lexical_among_similar", "Minimum intent similarity", "Lowest intent similarity among semantically similar pairs");
-  public static final Metric<Double> SII_SEMANTIC_THRESHOLD = diagnostic("aidebt_sii_semantic_threshold", "SII semantic threshold", "Configured semantic similarity threshold");
+  public static final Metric<Double> SII_MIN_LEXICAL = diagnostic("aidebt_sii_minimum_lexical_among_similar", "Minimum name similarity", "Lowest lexical name similarity among concept-and-context matches");
+  public static final Metric<Double> SII_SEMANTIC_THRESHOLD = diagnostic("aidebt_sii_semantic_threshold", "SII concept threshold", "Configured concept similarity threshold");
   public static final Metric<Double> SII_CONTEXT_THRESHOLD = diagnostic("aidebt_sii_context_threshold", "SII context threshold", "Configured minimum AST-context similarity for comparable identifier concepts");
-  public static final Metric<Double> SII_LEXICAL_THRESHOLD = diagnostic("aidebt_sii_lexical_threshold", "SII lexical threshold", "Configured low intent-similarity threshold");
-  public static final Metric<String> SII_EVIDENCE = data("aidebt_sii_evidence", "SII pair evidence", "High-context-semantic, low-Levenshtein identifier pairs with both source ranges as JSON");
+  public static final Metric<Double> SII_LEXICAL_THRESHOLD = diagnostic("aidebt_sii_lexical_threshold", "SII lexical ceiling", "Configured maximum lexical name similarity");
+  public static final Metric<String> SII_EVIDENCE = data("aidebt_sii_evidence", "SII pair evidence", "High-concept/high-context, low-Levenshtein identifier pairs with both source ranges as JSON");
   public static final Metric<Double> EGR_UNEXPLAINED = diagnostic("aidebt_egr_unexplained", "Unexplained complex blocks", "Complex blocks without rationale");
   public static final Metric<Double> EGR_COMPLEX = diagnostic("aidebt_egr_complex", "Complex blocks", "Blocks meeting at least one complexity, nesting, or control-flow criterion");
   public static final Metric<Double> EGR_CC_TRIGGERED = diagnostic("aidebt_egr_cc_triggered", "Cyclomatic complexity-triggered blocks", "Complex blocks crossing the cyclomatic-complexity threshold");

@@ -54,7 +54,7 @@ sonar-scanner -Dsonar.token="$SONAR_TOKEN"
 
 ## Interpretation limits
 
-The rules are static approximations. Category 1 rules mainly match local AST patterns; Category 2 rules infer missing configuration or lifecycle behavior; Category 3 rules approximate behavior that static analysis cannot prove fully. Therefore a finding is a review candidate, not proof of a runtime defect or proof that code was AI-generated. Precision, recall, and threshold sensitivity must still be validated for the thesis corpus.
+The rules are static approximations. Category 1 rules mainly match local AST patterns; Category 2 rules infer missing configuration or lifecycle behavior; Category 3 rules approximate behavior that static analysis cannot prove fully. Therefore a finding is a review candidate, not proof of a runtime defect or proof that code was AI-generated. Precision, recall, and threshold sensitivity must still be validated for the evaluation corpus.
 
 The detector remains a third-party component and is not copied into the Apache-licensed
 plugin JAR. The repository maintainer has confirmed its inclusion in the private

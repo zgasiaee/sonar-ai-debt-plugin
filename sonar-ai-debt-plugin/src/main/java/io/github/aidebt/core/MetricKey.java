@@ -1,7 +1,7 @@
 package io.github.aidebt.core;
 
 public enum MetricKey {
-  AISD("AI-Specific Smell Density"),
+  AISD("AI-Associated Smell Density"),
   CII("Coupling Instability Index"),
   CDI("Complexity-Documentation Imbalance"),
   HTS("Hyperparameter Transparency Score"),

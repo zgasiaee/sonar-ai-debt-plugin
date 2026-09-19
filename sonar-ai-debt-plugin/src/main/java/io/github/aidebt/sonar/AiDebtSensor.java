@@ -25,7 +25,6 @@ import org.sonar.api.measures.Metric;
 import org.sonar.api.issue.impact.SoftwareQuality;
 import org.sonar.api.issue.impact.Severity;
 import org.sonar.api.rules.CleanCodeAttribute;
-import org.sonar.api.rules.RuleType;
 import org.sonar.api.utils.log.Logger;
 import org.sonar.api.utils.log.Loggers;
 
@@ -285,9 +284,7 @@ public final class AiDebtSensor implements Sensor {
       var issue = context.newExternalIssue()
           .engineId("AI Debt Python")
           .ruleId(finding.specification().id())
-          .type(RuleType.CODE_SMELL)
           .cleanCodeAttribute(CleanCodeAttribute.COMPLETE)
-          .severity(batchSeverity(finding.specification().severity()))
           .addImpact(SoftwareQuality.MAINTAINABILITY, Severity.valueOf(finding.specification().severity()));
       var location = issue.newLocation().on(input).message(finding.message());
       if (finding.endLine() > finding.line()) {
@@ -298,14 +295,6 @@ public final class AiDebtSensor implements Sensor {
       }
       issue.at(location).save();
     }
-  }
-
-  private static org.sonar.api.batch.rule.Severity batchSeverity(String severity) {
-    return switch (severity) {
-      case "HIGH" -> org.sonar.api.batch.rule.Severity.CRITICAL;
-      case "MEDIUM" -> org.sonar.api.batch.rule.Severity.MAJOR;
-      default -> org.sonar.api.batch.rule.Severity.MINOR;
-    };
   }
 
   private static double round(double value) { return Math.round(value * 10_000.0) / 10_000.0; }

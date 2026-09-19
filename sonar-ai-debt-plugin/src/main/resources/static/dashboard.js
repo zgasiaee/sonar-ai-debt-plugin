@@ -127,8 +127,8 @@ window.registerExtension('aidebt/dashboard', function (options) {
   function header(v) {
     const section = el('header', 'aidebt-hero');
     const copy = el('div', 'aidebt-hero-copy');
-    copy.append(el('span', 'aidebt-eyebrow', 'AI-GENERATED CODE DEBT ASSESSMENT'),
-      el('h1', '', 'Technical Debt in AI-Generated Code'),
+    copy.append(el('span', 'aidebt-eyebrow', 'TECHNICAL AND COGNITIVE DEBT ASSESSMENT'),
+      el('h1', '', 'AI Debt Metrics for Python'),
       el('p', '', 'An evidence-led view of maintainability, reproducibility, structure, and cognitive burden in the analyzed codebase.'));
     const scope = el('div', 'aidebt-scope');
     scope.append(scopeItem(integer(v.aidebt_files), 'files'), scopeItem(integer(v.aidebt_logical_lines), 'logical lines'),
@@ -143,7 +143,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
   function summary(v, technical, cognitive, effort) {
     const section = el('section', 'aidebt-summary');
     section.setAttribute('aria-label', 'Index summary');
-    section.append(scoreCard('ADSI', v.aidebt_adsi, 'Overall AI-code debt indicator', false, false, effort.overall),
+    section.append(scoreCard('ADSI', v.aidebt_adsi, 'Overall debt indicator', false, false, effort.overall),
       scoreCard('TDSI', v.aidebt_tdsi, 'Technical debt profile', false, false, effort.technical),
       scoreCard('CogDI', v.aidebt_cogdi, 'Cognitive debt profile', false, false, effort.cognitive),
       coverageCard(v.aidebt_metric_coverage, technical.concat(cognitive)));
@@ -263,7 +263,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
     const card = el('article', 'aidebt-formula-card aidebt-final-card');
     const heading = el('div', 'aidebt-formula-heading');
     heading.append(el('div', '', 'ADSI'), el('strong', '', fixed(calculation.result)));
-    card.append(el('p', 'aidebt-index-description', 'ADSI combines the available technical and cognitive profiles into the overall AI-code debt indicator.'),
+    card.append(el('p', 'aidebt-index-description', 'ADSI combines the available technical and cognitive profiles into the overall debt indicator.'),
       heading, contributionList(calculation.terms), el('p', 'aidebt-formula-note', calculation.note));
     return card;
   }
@@ -983,7 +983,7 @@ window.registerExtension('aidebt/dashboard', function (options) {
     const cdiInputsReady = isNumber(v.aidebt_cdi_total_complexity_excess)
       && isNumber(v.aidebt_cdi_undocumented_complexity_excess);
     return [
-      metric('AISD', 'AI-specific smell density', v.aidebt_aisd_score, v.aidebt_weight_aisd,
+      metric('AISD', 'AI-associated smell density', v.aidebt_aisd_score, v.aidebt_weight_aisd,
         [{label:'Smells',value:integer(v.aidebt_aisd_smells)},{label:'KLOC',value:number(v.aidebt_aisd_kloc,3)},{label:'Raw density',value:number(v.aidebt_aisd,3)}],
         'Shows how strongly the analyzed code is affected by AI-associated implementation patterns detected by the configured rule set.',
         'It relates detected SpecDetect4AI findings to the amount of analyzed source code while preserving each finding as source-located evidence.',

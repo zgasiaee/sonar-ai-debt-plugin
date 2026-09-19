@@ -11,6 +11,22 @@
 
   <name>AI Debt SonarQube Plugin</name>
   <description>Research-grade technical and cognitive debt metrics for Python.</description>
+  <url>https://github.com/zgasiaee/sonar-ai-debt-plugin</url>
+  <developers>
+    <developer>
+      <id>zgasiaee</id>
+      <name>Zahra Asiaee</name>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:https://github.com/zgasiaee/sonar-ai-debt-plugin.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/zgasiaee/sonar-ai-debt-plugin.git</developerConnection>
+    <url>https://github.com/zgasiaee/sonar-ai-debt-plugin</url>
+  </scm>
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/zgasiaee/sonar-ai-debt-plugin/issues</url>
+  </issueManagement>
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
@@ -55,6 +71,31 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
+        <version>3.2.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.5.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.16.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-install-plugin</artifactId>
+        <version>3.2.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>3.2.0</version>
+      </plugin>
       <plugin>
         <groupId>org.sonarsource.sonar-packaging-maven-plugin</groupId>
         <artifactId>sonar-packaging-maven-plugin</artifactId>

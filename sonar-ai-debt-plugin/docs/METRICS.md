@@ -4,7 +4,7 @@ All composite inputs are debt-oriented in `[0, 1]`, where a larger value means m
 
 ## Technical index
 
-### AISD — AI-Specific Smell Density
+### AISD — AI-Associated Smell Density
 
 `AISD_raw = unique SpecDetect4AI R1–R24 smell instances / KLOC`
 
@@ -123,7 +123,7 @@ The fixed policy follows [SonarSource's standard remediation durations](https://
 | Signal | Countable remediation unit | Action policy |
 |---|---|---|
 | AISD | One unique source-located SpecDetect4AI occurrence | Easy, moderate, or major by rule family |
-| CII | None until a concrete dependency violation and repair are defined | Not estimated |
+| CII | One internal dependency cycle, or one stability-direction violation | Major per cycle; medium per stability-direction violation |
 | CDI | One undocumented callable block with decision complexity | Tiered by block complexity |
 | HTS | One implicit or opaque ML initialization | Moderate or major |
 | CSD | One flagged target callable in a style–structure transition | Easy |

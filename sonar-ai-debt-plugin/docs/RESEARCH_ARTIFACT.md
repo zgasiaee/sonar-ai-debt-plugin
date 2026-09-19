@@ -10,13 +10,13 @@
 | Analyzed language | Python (`.py` main-source files) |
 | License | Apache License 2.0 for this repository |
 | Artifact version | `0.1.0-SNAPSHOT` |
-| Repository revision | Record the immutable Git commit before submission |
-| Archival identifier | Add the Zenodo/Figshare DOI after archival |
-| Maintainer | Add the corresponding author's name and contact address |
+| Repository | <https://github.com/zgasiaee/sonar-ai-debt-plugin> |
+| Repository revision | Use the immutable release tag or the output of `git rev-parse HEAD` |
+| Archival identifier | Not assigned; add a DOI after depositing a release archive |
+| Maintainer | Zahra Asiaee (`@zgasiaee`) |
 
-> **Submission note.** Replace the revision, DOI, and maintainer placeholders before
-> submitting or publishing this artifact. A release archive should refer to one immutable
-> revision and include a SHA-256 checksum.
+> **Submission note.** A release archive should refer to one immutable revision, include a
+> SHA-256 checksum, and record its persistent DOI here when one is assigned.
 
 ## ACM Artifact Review and Badging alignment
 
@@ -97,6 +97,7 @@ in [`VALIDATION.md`](VALIDATION.md).
 | `src/test/` | Unit, golden-value, aggregation, rule, and report-parser tests |
 | `research/calibrate_weights.py` | Optional exploratory CRITIC weighting workflow |
 | `research/thresholds/` | Provenance-blind candidate sampling and grouped threshold calibration |
+| `profiles/consensus-adjudicated-v1.properties` | Frozen scanner-ready weights and thresholds used by the study |
 | `docs/METRICS.md` | Metric operational definitions and applicability rules |
 | `docs/ARCHITECTURE.md` | Component and data-flow architecture |
 | `docs/SPECDETECT4AI.md` | External AISD detector integration contract |
@@ -158,8 +159,9 @@ Python is required for SpecDetect4AI, not for the Java metric engine itself.
 
 ### 5.3 Recorded validation environment
 
-The following environment was used for the latest local artifact verification on
-2026-07-23. It is a known-good baseline, not an exhaustive compatibility claim.
+The build and automated tests were last verified locally on 2026-09-19. The recorded
+SonarQube and scanner versions below are the known-good end-to-end baseline; this table is
+not an exhaustive compatibility claim.
 
 | Component | Recorded value |
 |---|---|
@@ -202,8 +204,8 @@ PowerShell and activate the virtual environment with `.venv\Scripts\Activate.ps1
 ### 7.1 Acquire and identify the artifact
 
 ```bash
-git clone <REPOSITORY_URL>
-cd <ARTIFACT_ROOT>/sonar-ai-debt-plugin
+git clone https://github.com/zgasiaee/sonar-ai-debt-plugin.git
+cd sonar-ai-debt-plugin/sonar-ai-debt-plugin
 git rev-parse HEAD
 ```
 
@@ -224,8 +226,15 @@ Successful completion creates:
 target/sonar-ai-debt-plugin-0.1.0-SNAPSHOT.jar
 ```
 
-At the current revision, the verification suite executes 37 tests with zero failures,
-errors, or skipped tests. The number may increase in later revisions; no test should fail.
+At the current revision, the Maven verification suite executes 45 tests with zero failures,
+errors, or skipped tests. The threshold-calibration utilities add four Python unit tests.
+The number may increase in later revisions; no test should fail.
+
+Run the calibration-tool tests from the plugin directory with:
+
+```bash
+python3 -m unittest discover -s research/thresholds -p 'test_*.py' -v
+```
 
 Optional checksum:
 
@@ -408,8 +417,8 @@ The overview reports:
 - links to the metric-specific analysis pages.
 
 Each metric page reports interpretable inputs, thresholds where applicable, result
-severity, and compact source-located evidence. Exact unpublished aggregation formulas are
-not displayed in the dashboard.
+severity, compact source-located evidence, and the active weighted calculations needed to
+reconstruct the aggregate indices.
 
 ### 9.2 SonarQube issues
 
@@ -453,7 +462,7 @@ export.
 
 ## 10. Expected validation outcome
 
-`mvn clean verify` is the authoritative repository-level validation command.
+`mvn clean verify` is the authoritative plugin-level validation command.
 `ProjectAnalyzerTest.allMetricsRegressionInputProducesANonZeroSignalForEveryMetric`
 uses compact inline Python inputs to verify that all eight component metrics can become
 applicable and produce non-zero signals. `GoldenMetricTest` contains smaller
@@ -549,9 +558,10 @@ For a reproducible Human-versus-AI study:
 6. archive scan logs, detector reports, API exports, and configuration files; and
 7. keep source provenance labels outside the metric engine.
 
-The default weights are neutral equal weights. Alternative calibrated weights are
-exploratory unless preregistered and validated against an external debt criterion. See
-[`VALIDATION.md`](VALIDATION.md).
+The default weights and thresholds implement the frozen `consensus-adjudicated-v1`
+profile in [`../profiles/consensus-adjudicated-v1.properties`](../profiles/consensus-adjudicated-v1.properties).
+Alternative profiles belong to a separately versioned sensitivity analysis. See
+[`THRESHOLD_CALIBRATION.md`](THRESHOLD_CALIBRATION.md) and [`VALIDATION.md`](VALIDATION.md).
 
 ## 12. Optional exploratory weight calibration
 
@@ -648,16 +658,15 @@ for the ACM **Artifacts Available** target.
 
 ## 17. Citation
 
-Replace this placeholder with the final thesis or paper citation:
+Until a DOI-bearing archive or paper citation is available, cite the software repository as:
 
 ```bibtex
-@software{ai_debt_metrics_artifact,
-  author  = {<AUTHOR NAMES>},
-  title   = {AI Debt Metrics for SonarQube: Research Artifact},
-  year    = {<YEAR>},
-  version = {0.1.0},
-  doi     = {<ARCHIVE DOI>},
-  url     = {<ARCHIVE URL>}
+@software{asiaee_ai_debt_metrics_2026,
+  author  = {Zahra Asiaee},
+  title   = {AI Debt Metrics for SonarQube},
+  year    = {2026},
+  version = {0.1.0-SNAPSHOT},
+  url     = {https://github.com/zgasiaee/sonar-ai-debt-plugin}
 }
 ```
 

@@ -28,7 +28,7 @@ The plugin follows SonarSource's supported extension model: a Java scanner senso
 
 ## Configuration
 
-The defaults are deliberately neutral and preregistration-friendly:
+The defaults implement the frozen `consensus-adjudicated-v1` profile:
 
 ```properties
 sonar.aidebt.enabled=true
@@ -56,7 +56,8 @@ The listed decision thresholds and equal aggregation weights form the frozen
 annotations, codebook adjudication, and conservative retention where the labeled sample did
 not identify a more reliable alternative. Use the same profile for Human and AI code and do
 not tune it to maximize separation between origin groups. Pairwise metrics report when the
-configured analysis budget is reached.
+configured analysis budget is reached. The complete scanner-ready profile is checked in at
+[`profiles/consensus-adjudicated-v1.properties`](profiles/consensus-adjudicated-v1.properties).
 
 The plug-in can export every pre-threshold CSD, RLR, SII, and EGR candidate for
 provenance-blind calibration:
@@ -78,8 +79,8 @@ For exploratory analysis, `research/calibrate_weights.py` implements CRITIC weig
 
 ```bash
 python3 research/calibrate_weights.py \
-  --tdsi ../tasks_TDSI_metrics_calc/TD_Metrics_Output.csv \
-  --cogdi ../tasks_Cognetive_metrics_calc/Cognitive_Metrics_Output.csv \
+  --tdsi <TDSI_COMPONENT_CSV> \
+  --cogdi <COGDI_COMPONENT_CSV> \
   --bootstrap 1000 \
   --output research/output/weights.json
 ```
